@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Байна ядайк — класс арабского</title>
+<meta name="theme-color" content="#2f2a9e">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#121026);--ink:light-dark(#17152e,#eeedf8);--mut:light-dark(#5d5a78,#aaa7c8);--line:light-dark(#e5e3f1,#2d2a52);--card:light-dark(#f5f4fc,#1b1839);--ind:light-dark(#2f2a9e,#9a93ff);--cover:light-dark(#2f2a9e,#231e78);--sun:#ffbf2e;--cor:light-dark(#d93f25,#ff7a5c);--ok:light-dark(#1d8152,#5fd39a);--bad:light-dark(#c62f2f,#ff7b7b)}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Manrope,system-ui,sans-serif;overflow-x:clip}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.ar{font-family:Amiri,'Noto Naskh Arabic',serif;direction:rtl;unicode-bidi:isolate}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0)}
+.bar{max-width:1000px;margin:auto;display:flex;align-items:center;gap:12px;padding:10px 16px;flex-wrap:wrap}
+.logo{font-weight:800;font-size:18px;display:flex;align-items:center;gap:8px;margin-inline-end:auto}
+.logo b{font-family:Amiri,serif;font-size:22px;color:var(--ind);font-weight:700;line-height:1}
+.who-me{font-size:14px;color:var(--mut);font-weight:600}
+nav{max-width:1000px;margin:auto;display:flex;gap:4px;padding:0 12px;flex-wrap:wrap}
+nav button{border:0;background:none;padding:12px 14px;font-weight:700;color:var(--mut);border-bottom:3px solid transparent;min-height:44px}
+nav button.on{color:var(--ind);border-color:var(--ind)}
+main{max-width:1000px;margin:auto;padding:20px 16px 110px}
+h1{font-size:clamp(28px,4vw,40px);line-height:1.05;letter-spacing:-.02em;margin:0 0 6px;text-wrap:balance}
+h2{font-size:21px;margin:28px 0 12px}
+.mut{color:var(--mut)}.small{font-size:14px}
+.cover{background:var(--cover);color:#fff;border-radius:22px;padding:clamp(20px,3vw,32px);display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px;align-items:center}
+.cover .big{font-size:clamp(44px,7vw,72px);line-height:1.2}
+.cover p{margin:4px 0 0;opacity:.85}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:14px}
+.day{aspect-ratio:1;border-radius:10px;background:rgba(255,255,255,.14);display:grid;place-items:center;font-size:13px;font-weight:700}
+.day.d{background:var(--sun);color:#2a2000}.day.t{outline:2px solid #fff}
+.stat{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
+.stat div{font-size:14px;opacity:.9}.stat b{display:block;font-size:26px}
+.lvl{height:10px;background:rgba(255,255,255,.18);border-radius:6px;overflow:hidden;margin-top:8px}.lvl i{display:block;height:100%;background:var(--sun)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px}
+.card h3{margin:0 0 4px;font-size:18px}
+.btn{border:0;background:var(--ind);color:#fff;font-weight:700;border-radius:12px;padding:11px 18px;min-height:44px}
+.btn.alt{background:transparent;color:var(--ind);border:2px solid var(--ind)}
+.btn.sun{background:var(--sun);color:#2a2000}
+.btn.sm{min-height:36px;padding:6px 12px;font-size:14px;border-radius:10px}
+.btn.del{background:transparent;color:var(--bad);border:1px solid var(--line)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:7px 14px;font-size:14px;font-weight:600;min-height:38px}
+.chip.on{background:var(--ind);color:#fff;border-color:var(--ind)}
+.tag{display:inline-block;font-size:13px;font-weight:700;padding:2px 10px;border-radius:999px;background:color-mix(in srgb,var(--ind) 14%,transparent);color:var(--ind);white-space:nowrap}
+.tag.ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.tag.late{background:color-mix(in srgb,var(--cor) 16%,transparent);color:var(--cor)}
+.list{display:grid;gap:8px}
+.item{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;flex-wrap:wrap}
+.item .grow{flex:1;min-width:160px}
+.wrd{font-size:28px;line-height:1.3}
+.play{width:44px;height:44px;border-radius:50%;border:0;background:color-mix(in srgb,var(--ind) 14%,transparent);color:var(--ind);flex:none;display:grid;place-items:center}
+.play svg{width:18px;height:18px}
+.vols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:16px}
+@media(min-width:760px){.vols{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.vol{border:1px solid var(--line);background:var(--card);border-radius:20px;padding:12px 12px 14px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;transition:transform .15s,border-color .15s}
+.vol:hover{border-color:var(--ind);transform:translateY(-2px)}
+.vol img{width:100%;aspect-ratio:400/542;object-fit:cover;border-radius:10px;display:block;box-shadow:0 6px 18px rgb(0 0 0/.18);background:var(--line)}
+.vol .vt{position:relative;margin-top:-22px;width:100%;background:var(--cover);color:#fff;border-radius:12px;padding:7px 6px;font-weight:800;font-size:19px;line-height:1.2}
+.vol .vn{display:flex;align-items:center;justify-content:center;gap:6px;color:var(--mut);font-size:14px;font-weight:600}
+.vol .vn svg{width:18px;height:18px;flex:none}
+.vbar{width:100%;height:5px;border-radius:3px;background:var(--line);overflow:hidden}.vbar i{display:block;height:100%;background:var(--ok)}
+.chap{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.ch{border:1px solid var(--line);background:var(--card);border-radius:16px;padding:14px;text-align:start;min-height:96px}
+.ch b{font-size:30px;color:var(--ind);display:block;line-height:1}
+.ch.lock{opacity:.5;cursor:default}
+.ch.cur{background:var(--cover);color:#fff;border-color:transparent}.ch.cur b{color:var(--sun)}
+.wcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.wc{border:1px solid var(--line);background:var(--card);border-radius:16px;padding:14px;text-align:center}
+.wc .ar{font-size:30px;display:block;line-height:1.5}
+.line{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.who{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;background:var(--ind)}
+.who.b{background:var(--cor)}
+.who.c{background:#1d8152}
+.line .ar{font-size:27px;display:block;text-align:right;line-height:1.6}
+.line.speaking .ar{color:var(--ind)}
+.gram{white-space:pre-line;unicode-bidi:plaintext;font-size:17px;line-height:1.9}
+input[type=text],input[type=email],input[type=password],input[type=search],input[type=date],select,textarea{border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:10px 12px;font-size:16px;min-height:44px;width:100%}
+textarea{min-height:120px;resize:vertical}
+input.arin,textarea.arin{font-family:Amiri,serif;font-size:20px;direction:rtl}
+label{font-weight:700;font-size:14px;display:block;margin-bottom:4px}
+.form{display:grid;gap:14px;max-width:560px}
+.meter{height:8px;border-radius:5px;background:var(--line);overflow:hidden}.meter i{display:block;height:100%;background:var(--ind)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{text-align:start;font-size:13px;color:var(--mut);font-weight:700;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+td input{min-height:38px;padding:6px 8px}
+.hbar{display:grid;grid-template-columns:minmax(90px,160px) minmax(0,1fr) 40px;gap:10px;align-items:center;padding:6px 0}
+.hbar .ar{font-size:22px;text-align:right}
+.hbar span.b{height:14px;border-radius:7px;background:var(--cor)}
+.code{font-size:clamp(36px,8vw,56px);font-weight:800;letter-spacing:.12em;color:var(--ind);font-variant-numeric:tabular-nums}
+.auth{max-width:440px;margin:6vh auto 0}
+.auth .cover{display:block;text-align:center;margin-bottom:18px}
+.err{color:var(--bad);font-weight:600;font-size:14px}
+.ov{position:fixed;inset:0;background:var(--bg);z-index:20;overflow:auto;display:none}
+.ov.show{display:block}
+.qz{max-width:640px;margin:auto;padding:16px 16px 40px;min-height:100%;display:flex;flex-direction:column}
+.qtop{display:flex;gap:12px;align-items:center}
+.x{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--card);font-size:20px}
+.prog{flex:1;height:12px;background:var(--line);border-radius:6px;overflow:hidden}.prog i{display:block;height:100%;background:var(--sun);transition:width .3s}
+.qask{margin:28px 0 8px;color:var(--mut);font-weight:700}
+.qbig{font-size:clamp(40px,9vw,60px);line-height:1.4;text-align:center;margin:8px 0 18px}
+.qru{font-size:24px;font-weight:700;text-align:center;margin:8px 0 18px}
+.opts{display:grid;gap:10px}
+.opt{border:2px solid var(--line);background:var(--card);border-radius:14px;padding:14px;font-size:18px;font-weight:600;text-align:center;min-height:56px}
+.opt.ar{font-size:26px}
+.opt.good{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,var(--card))}
+.opt.wrong{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,var(--card))}
+.built{min-height:72px;border:2px dashed var(--line);border-radius:14px;padding:10px;display:flex;flex-wrap:wrap;gap:8px;direction:rtl}
+.tiles{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px;direction:rtl}
+.tile{font-family:Amiri,serif;font-size:24px;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:6px 14px;min-height:48px}
+.tile.used{visibility:hidden}
+.fb{margin-top:auto;padding-top:18px}
+.fbbox{border-radius:16px;padding:14px 16px;margin-bottom:12px;font-weight:700}
+.fbbox.g{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.fbbox.w{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.fbbox .ar{font-size:22px}
+.flash{perspective:1000px;margin:24px 0;cursor:pointer}
+.fcin{position:relative;height:300px;transition:transform .45s;transform-style:preserve-3d}
+.flash.fl .fcin{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;border-radius:24px;display:grid;place-items:center;text-align:center;padding:20px;background:var(--cover);color:#fff}
+.face.bk{transform:rotateY(180deg);background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.face .ar{font-size:56px;line-height:1.4}
+.res{text-align:center;padding-top:40px}
+.res .score{font-size:clamp(64px,14vw,96px);font-weight:800;color:var(--ind);line-height:1}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:12px;font-weight:600;z-index:30;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+.loading{padding:60px 0;text-align:center;color:var(--mut)}
+.rec{background:var(--cor)!important;color:#fff!important}
+audio{width:100%;margin:6px 0}
+@media(prefers-reduced-motion:reduce){.fcin,.prog i{transition:none}}
+@media(max-width:700px){
+ nav{position:fixed;bottom:0;left:0;right:0;background:var(--bg);border-top:1px solid var(--line);justify-content:space-around;padding:0 4px env(safe-area-inset-bottom,0);max-width:none;flex-wrap:nowrap;z-index:6}
+ nav button{border-bottom:0;border-top:3px solid transparent;flex:1;font-size:12px;padding:12px 2px}
+ nav button.on{border-top-color:var(--ind)}
+ .cover{grid-template-columns:minmax(0,1fr)}
+ .logo span{display:none}
+}
+@media(max-width:600px){table{font-size:13px}th,td{padding:6px 4px}.hide-s{display:none}}
+.lhd{text-align:center;margin:6px 0 8px}.lhd .ar{font-size:34px;color:var(--ind);line-height:1.5}
+.les{margin:18px 0 6px}.lh{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:10px 2px;text-align:right}
+.ln{width:46px;height:46px;flex:none;border-radius:50%;background:var(--ind);color:var(--bg);display:grid;place-items:center;font-family:Amiri,serif;font-size:26px;line-height:1}
+.lt .ar{font-size:24px;line-height:1.3}.lt .small{display:block}
+.li{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin:8px 0;padding:15px 18px;border:1px solid var(--line);border-radius:16px;background:var(--card);text-align:left;font-weight:700}
+.li:hover{border-color:var(--ind)}.li .ic{font-size:22px;flex:none}.li .sub{font-weight:400;color:var(--mut);font-size:14px;margin-left:8px}
+</style></head><body>
+<header><div class="bar"><div class="logo"><b class="ar">الْعَرَبِيَّةُ بَيْنَ يَدَيْكَ</b><span>Класс арабского</span></div><span class="who-me" id="me"></span><button class="btn alt sm" id="logout" hidden>Выйти</button></div><nav id="nav"></nav></header>
+<main id="app"><div class="loading">Загрузка…</div></main>
+<div class="ov" id="ov"></div>
+<div class="toast" id="toast"></div>
+<script>
+{
+/* ===== настройки ===== */
+const SB_URL='https://jfhvgogebtllvlokzydr.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmaHZnb2dlYnRsbHZsb2t6eWRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1MTU0ODksImV4cCI6MjExMTA5MTQ4OX0.Ekz5aSidZcHQa1e8OgPpaQ8pm_KxVRdBPcVz3_LBPXA';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+
+/* ===== утилиты ===== */
+const PLAY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const strip=s=>String(s??'').replace(/[ً-ْٰ]/g,'');
+const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const fmt=d=>d?new Date(d+'T12:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short'}):'без срока';
+const today=()=>new Date().toISOString().slice(0,10);
+let tt;const toast=m=>{const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),3200)};
+const fail=e=>{console.error(e);toast(e?.message||'Ошибка. Попробуйте ещё раз')};
+const TYPES={mix:'Смешанный тест',ar2ru:'Арабский → русский',ru2ar:'Русский → арабский',listen:'Аудирование',build:'Сборка фраз'};
+
+/* ===== состояние ===== */
+const D={user:null,me:null,chapters:[],words:[],lines:[],group:null,groups:[],members:[],asg:[],subs:[],prog:new Map(),gprog:[]};
+const U={tab:'home',auth:'login',ch:null,har:true,ru:true,rate:.85,filter:'all',q:'',openAsg:null,matCh:null,authErr:'',recovery:false};
+const A=s=>U.har?esc(s):esc(strip(s));
+const isT=()=>D.me?.role==='teacher';
+const W=()=>D.words;
+const chWords=id=>D.words.filter(w=>w.chapter_id===id);
+const chLines=id=>D.lines.filter(l=>l.chapter_id===id);
+const LN=x=>x.lesson||1;
+const ORD=['','الدَّرْسُ الأَوَّلُ','الدَّرْسُ الثّاني','الدَّرْسُ الثّالِثُ','الدَّرْسُ الرّابِعُ','الدَّرْسُ الخامِسُ','الدَّرْسُ السّادِسُ'];
+const ORU=['','Урок первый','Урок второй','Урок третий','Урок четвёртый','Урок пятый','Урок шестой'];
+const ADIG=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const lvl=()=>Math.floor((D.me?.xp||0)/200)+1;
+
+/* ===== звук ===== */
+let warned=false,curAudio=null;
+function say(w,el){try{
+ if(curAudio){curAudio.pause();curAudio=null}
+ if(w.audio_url){curAudio=new Audio(w.audio_url);curAudio.playbackRate=U.rate/.85;if(el){el.classList.add('speaking');curAudio.onended=()=>el.classList.remove('speaking')}curAudio.play().catch(()=>{});return}
+ if(!warned){warned=true;toast('Звук для этого слова ещё не готов')}
+}catch(e){}}
+const byKey=k=>{const [t,id]=k.split(':');return (t==='w'?D.words:D.lines).find(x=>x.id===+id)};
+
+/* ===== загрузка данных ===== */
+async function loadContent(){
+ const [c,w,l]=await Promise.all([sb.from('chapters').select('*').order('book').order('number'),sb.from('words').select('*').order('sort').order('id'),sb.from('dialog_lines').select('*').order('sort').order('id')]);
+ if(c.error)throw c.error;if(w.error)throw w.error;if(l.error)throw l.error;
+ D.chapters=c.data;D.words=w.data;D.lines=l.data;if(!U.ch&&D.chapters[0])U.ch=D.chapters[0].id;if(!U.matCh&&D.chapters[0])U.matCh=D.chapters[0].id}
+async function loadMe(){const {data,error}=await sb.from('profiles').select('*').eq('id',D.user.id).single();if(error)throw error;D.me=data}
+async function loadStudent(){
+ const m=await sb.from('group_members').select('group_id').eq('student_id',D.user.id);if(m.error)throw m.error;
+ if(!m.data.length){D.group=null;return}
+ const gid=m.data[0].group_id;
+ const [g,mem,asg,subs,prog]=await Promise.all([sb.from('groups').select('*').eq('id',gid).single(),sb.from('group_members').select('student_id').eq('group_id',gid),sb.from('assignments').select('*').eq('group_id',gid).order('due_date'),sb.from('submissions').select('*').eq('student_id',D.user.id),sb.from('word_progress').select('*').eq('student_id',D.user.id)]);
+ for(const r of [g,mem,asg,subs,prog])if(r.error)throw r.error;
+ D.group=g.data;D.asg=asg.data;D.subs=subs.data;D.prog=new Map(prog.data.map(p=>[p.word_id,p]));
+ const ids=mem.data.map(x=>x.student_id);const p=await sb.from('profiles').select('id,full_name,xp,streak,last_active').in('id',ids);if(p.error)throw p.error;D.members=p.data}
+async function loadTeacher(){
+ const g=await sb.from('groups').select('*').eq('teacher_id',D.user.id).order('created_at');if(g.error)throw g.error;D.groups=g.data;
+ if(!D.groups.length){D.group=null;D.members=[];D.asg=[];D.subs=[];D.gprog=[];return}
+ if(!D.group||!D.groups.find(x=>x.id===D.group.id))D.group=D.groups[0];else D.group=D.groups.find(x=>x.id===D.group.id);
+ const gid=D.group.id;
+ const [mem,asg]=await Promise.all([sb.from('group_members').select('student_id,joined_at').eq('group_id',gid),sb.from('assignments').select('*').eq('group_id',gid).order('created_at',{ascending:false})]);
+ if(mem.error)throw mem.error;if(asg.error)throw asg.error;D.asg=asg.data;
+ const ids=mem.data.map(x=>x.student_id);
+ const [p,s,wp]=await Promise.all([ids.length?sb.from('profiles').select('id,full_name,xp,streak,last_active').in('id',ids):{data:[]},D.asg.length?sb.from('submissions').select('*').in('assignment_id',D.asg.map(a=>a.id)):{data:[]},ids.length?sb.from('word_progress').select('*').in('student_id',ids):{data:[]}]);
+ for(const r of [p,s,wp])if(r.error)throw r.error;D.members=p.data;D.subs=s.data;D.gprog=wp.data}
+async function boot(){
+ try{await loadContent();await loadMe();if(isT())await loadTeacher();else await loadStudent();
+ $('me').textContent=D.me.full_name+(isT()?' · учитель':'');$('logout').hidden=false;
+ if(isT()&&!['group','asg','mat','stats','lessons'].includes(U.tab))U.tab='group';
+ render()}catch(e){fail(e);$('app').innerHTML='<div class="loading">Не удалось загрузить данные. Обновите страницу.</div>'}}
+
+/* ===== вход и регистрация ===== */
+function authView(){$('nav').innerHTML='';$('me').textContent='';$('logout').hidden=true;
+ if(U.recovery)return `<div class="auth"><h1>Новый пароль</h1><form class="form card" id="f-newpass"><div><label for="np">Новый пароль</label><input type="password" id="np" minlength="6" required autocomplete="new-password"></div><div class="err">${esc(U.authErr)}</div><button class="btn">Сохранить</button></form></div>`;
+ const reg=U.auth==='reg',fg=U.auth==='forgot';
+ return `<div class="auth"><div class="cover"><div class="ar big">أَهْلًا وَسَهْلًا</div><p>Класс арабского по учебнику «Аль-Арабийя байна ядайк»</p></div>
+ ${fg?'':`<div class="row" style="margin-bottom:12px"><button class="chip ${reg?'':'on'}" data-auth="login">Вход</button><button class="chip ${reg?'on':''}" data-auth="reg">Регистрация</button></div>`}
+ <form class="form card" id="f-auth">
+ ${fg?'<h3>Восстановление пароля</h3><p class="mut small" style="margin:0">Мы отправим ссылку для сброса пароля на вашу почту.</p>':''}
+ ${reg?'<div><label for="a-name">Имя и фамилия</label><input type="text" id="a-name" required autocomplete="name"></div>':''}
+ <div><label for="a-email">Почта</label><input type="email" id="a-email" required autocomplete="email"></div>
+ ${fg?'':`<div><label for="a-pass">Пароль${reg?' (не меньше 6 символов)':''}</label><input type="password" id="a-pass" minlength="6" required autocomplete="${reg?'new-password':'current-password'}"></div>`}
+ <div class="err">${esc(U.authErr)}</div>
+ <button class="btn" type="submit">${reg?'Зарегистрироваться':fg?'Отправить ссылку':'Войти'}</button>
+ ${fg?'<button type="button" class="btn alt" data-auth="login">Назад ко входу</button>':reg?'':'<button type="button" class="chip" data-auth="forgot" style="justify-self:start">Забыли пароль?</button>'}
+ </form></div>`}
+const AUTHERR={'Invalid login credentials':'Неверная почта или пароль','User already registered':'Эта почта уже зарегистрирована','Email not confirmed':'Почта не подтверждена. Проверьте письмо'};
+
+/* ===== экраны ===== */
+const NAV={st:[['home','Главная'],['lessons','Уроки'],['words','Слова'],['hw','Задания']],te:[['group','Группа'],['asg','Задания'],['mat','Материал'],['stats','Статистика'],['lessons','Уроки']]};
+function nav(){$('nav').innerHTML=NAV[isT()?'te':'st'].map(([k,t])=>`<button data-tab="${k}" class="${U.tab===k?'on':''}">${t}</button>`).join('')}
+function render(){if(!D.user){$('app').innerHTML=authView();return}
+ if(!D.me){$('app').innerHTML='<div class="loading">Загрузка…</div>';return}
+ if(!isT()&&!D.group){$('nav').innerHTML='';$('app').innerHTML=V.join();return}
+ nav();$('app').innerHTML=(V[U.tab]||V.home)()}
+const mySub=id=>D.subs.find(s=>s.assignment_id===id&&s.student_id===D.user.id);
+const pending=()=>D.asg.filter(a=>!mySub(a.id));
+const chName=id=>{const c=D.chapters.find(c=>c.id===id);return c?`Том ${c.book} · Глава ${c.number}`:'Все главы'};
+
+const V={
+join(){return `<div class="auth"><div class="cover"><div class="ar big">مَرْحَبًا</div><p>${esc(D.me.full_name)}, введите код группы, который дал вам учитель</p></div>
+ <form class="form card" id="f-join"><div><label for="j-code">Код группы</label><input type="text" id="j-code" required maxlength="12" style="text-transform:uppercase;letter-spacing:.15em;font-weight:800;font-size:22px" autocomplete="off"></div><button class="btn">Вступить в группу</button></form>
+ <p class="mut small" style="text-align:center;margin-top:16px">Вы учитель? Напишите администратору, чтобы вам назначили роль учителя.</p></div>`},
+
+home(){const me=D.me,p=pending()[0],xpIn=me.xp%200,dn=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],ti=(new Date().getDay()+6)%7;
+ const act=me.last_active===today()?1:0;const run=me.streak&&(me.last_active===today()||me.last_active===new Date(Date.now()-864e5).toISOString().slice(0,10))?me.streak:0;
+ const week=dn.map((_,i)=>{const back=ti-i;if(back<0)return 0;const end=act?0:1;return back>=end&&back<end+run?1:0});
+ const ws=W();const wd=ws.length?ws[new Date().getDate()%ws.length]:null;
+ const board=D.members.slice().sort((a,b)=>b.xp-a.xp);const my=board.findIndex(b=>b.id===me.id);
+ const ch=D.chapters.find(c=>c.id===U.ch)||D.chapters[0];
+ return `<section class="cover"><div><div class="ar big">أَهْلًا وَسَهْلًا</div><p>${esc(me.full_name)}, рады вас видеть! Несколько минут в день — и слова запомнятся.</p>
+ <div class="stat"><div><b>${run}</b>дней подряд</div><div><b>${me.xp}</b>очков</div><div><b>${lvl()}</b>уровень</div></div>
+ <div class="lvl"><i style="width:${xpIn/2}%"></i></div><p class="small">${200-xpIn} очков до уровня ${lvl()+1}</p></div>
+ <div><div class="small" style="opacity:.85">Эта неделя</div><div class="week">${week.map((d,i)=>`<div class="day ${d?'d':''} ${i===ti?'t':''}">${dn[i]}</div>`).join('')}</div>
+ <button class="btn sun" style="width:100%;margin-top:16px" data-act="quiz" data-type="mix" data-n="8" ${ws.length?'':'disabled'}>Быстрая тренировка</button></div></section>
+ <div class="grid" style="margin-top:14px">
+ ${ch?`<div class="card"><span class="tag">Продолжить</span><h3 style="margin-top:8px">Том ${ch.book} · Глава ${ch.number}</h3><p class="mut small" style="margin:0 0 12px">${esc(ch.title)} · ${chWords(ch.id).length} слов</p><button class="btn" data-act="open" data-id="${ch.id}">Открыть урок</button></div>`:''}
+ <div class="card">${p?`<span class="tag late">Задание до ${fmt(p.due_date)}</span><h3 style="margin-top:8px">${esc(p.title)}</h3><p class="mut small" style="margin:0 0 12px">${TYPES[p.type]} · ${p.question_count} вопросов</p><button class="btn" data-act="hw" data-id="${p.id}">Выполнить</button>`:`<span class="tag ok">Все задания сданы</span><h3 style="margin-top:8px">Отлично!</h3><p class="mut small">Новые задания появятся здесь.</p>`}</div>
+ ${wd?`<div class="card" style="text-align:center"><span class="tag">Слово дня</span><div class="ar" style="font-size:42px;margin:6px 0">${A(wd.ar)}</div><div class="mut">${esc(wd.ru)}</div><button class="play" style="margin:10px auto 0" data-say="w:${wd.id}" aria-label="Слушать">${PLAY}</button></div>`:''}
+ </div>
+ <h2>Рейтинг группы «${esc(D.group.name)}»</h2><div class="list">${board.slice(0,5).map((b,i)=>`<div class="item" ${b.id===me.id?'style="border-color:var(--sun)"':''}><b style="width:24px">${i+1}</b><span class="grow">${esc(b.full_name)}${b.id===me.id?' (вы)':''}</span><b>${b.xp}</b></div>`).join('')}
+ ${my>4?`<div class="item" style="border-color:var(--sun)"><b style="width:24px">${my+1}</b><span class="grow">Вы</span><b>${me.xp}</b></div>`:''}</div>`},
+
+lessons(){if(U.lessonOpen)return V.lesson();
+ const books=[...new Set(D.chapters.map(c=>c.book))];
+ if(!books.length)return `<h1>Уроки</h1><p class="mut">Учитель ещё не добавил главы.</p>`;
+ const ico='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 8l10 5 10-5-10-5Z"/><path d="m2 13 10 5 10-5"/></svg>';
+ const ul=n=>{const a=n%10,b=n%100;return a===1&&b!==11?'урок':a>=2&&a<=4&&(b<12||b>14)?'урока':'уроков'};
+ if(!U.book||!books.includes(U.book))return `<h1>Выберите том</h1><div class="vols">${books.map(b=>{const cs=D.chapters.filter(c=>c.book===b),ws=D.words.filter(w=>cs.some(c=>c.id===w.chapter_id)),k=isT()?0:ws.filter(w=>D.prog.get(w.id)?.known).length,pc=ws.length?Math.round(k*100/ws.length):0;
+  return `<button class="vol" data-act="book" data-id="${b}" aria-label="Том ${b}, ${cs.length} ${ul(cs.length)}"><img src="img/t${b}.jpg" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span class="vt">Том ${b}</span><span class="vn">${ico}${cs.length} ${ul(cs.length)}</span>${isT()?'':`<span class="vbar" title="Изучено ${pc}% слов"><i style="width:${pc}%"></i></span>`}</button>`}).join('')}</div>`;
+ const b=U.book;
+ return `<button class="chip" data-act="books">← Все тома</button><h1 style="margin-top:14px">Том ${b}</h1><div class="chap" style="margin-top:12px">${D.chapters.filter(c=>c.book===b).map(c=>{const n=chWords(c.id).length,k=chWords(c.id).filter(w=>D.prog.get(w.id)?.known).length;return `<button class="ch ${c.id===U.ch?'cur':''}" data-act="open" data-id="${c.id}"><b>${c.number}</b><span class="small">${esc(c.title)}</span><br><span class="small" style="opacity:.8">${isT()?n+' слов':k+' из '+n+' слов'}</span></button>`}).join('')}</div>`},
+
+lesson(){const c=D.chapters.find(x=>x.id===U.ch);if(!c){U.lessonOpen=false;return V.lessons()}
+ if(U.part)return V.part(c);
+ const ws=chWords(c.id),ls=chLines(c.id);
+ const nums=[...new Set([...ls.map(LN),...ws.map(LN)])].sort((x,y)=>x-y);
+ return `<button class="chip" data-act="back">← Все главы</button>
+ <div class="lhd"><div class="small mut" style="letter-spacing:.08em;font-weight:800">ГЛАВА ${c.number}</div>${c.title_ar?`<div class="ar">${A(c.title_ar)}</div>`:''}<div style="font-weight:700">${esc(c.title)}</div></div>
+ ${nums.map(n=>{const lw=ws.filter(w=>LN(w)===n),ll=ls.filter(l=>LN(l)===n);const read=ll.some(l=>/Чтение|Текст/.test(l.section||''));
+  const k=ll.find(l=>l.ru)?.ru;
+  return `<div class="les"><div class="lh"><div class="lt"><span class="ar">${A(ORD[n]||('الدَّرْسُ '+ADIG(n)))}</span><span class="small mut">${ORU[n]||('Урок '+n)}</span></div><div class="ln">${ADIG(n)}</div></div>
+  ${ll.length?`<button class="li" data-act="part" data-k="d" data-les="${n}"><span>${(()=>{const t=(ll[0].section||'').split('·').slice(1).join('·').trim();return t.includes(':')?esc(t):(read?'Текст':'Диалог')})()}<span class="sub">${ll.length} ${read?'предл.':'реплик'}</span></span><span class="ic">📖</span></button>`:''}
+  ${lw.length?`<button class="li" data-act="part" data-k="w" data-les="${n}"><span>Словарь<span class="sub">${lw.length} слов</span></span><span class="ic">🔤</span></button>`:''}
+  ${(lw.length||ll.length)?`<button class="li" data-act="part" data-k="x" data-les="${n}"><span>Упражнения</span><span class="ic">🧩</span></button>`:''}</div>`}).join('')}
+ <div class="les"><div class="lh"><div class="lt"><span class="ar">${A('خُلاصَةُ الوَحْدَةِ')}</span><span class="small mut">Итог главы</span></div><div class="ln">★</div></div>
+ ${c.grammar?`<button class="li" data-act="part" data-k="g"><span>Грамматика</span><span class="ic">📐</span></button>`:''}
+ ${ws.length>=4?`<button class="li" data-act="part" data-k="x" data-les="0"><span>Упражнения по всей главе<span class="sub">${ws.length} слов</span></span><span class="ic">🏁</span></button>`:''}</div>`},
+
+part(c){const k=U.part.k,n=U.part.les;const ws=chWords(c.id).filter(w=>!n||LN(w)===n),ls=chLines(c.id).filter(l=>!n||LN(l)===n);
+ const head=`<button class="chip" data-act="partback">← Глава ${c.number}</button>
+ <div class="lhd"><div class="small mut" style="font-weight:800">ГЛАВА ${c.number}${n?' · '+(ORU[n]||'Урок '+n).toUpperCase():''}</div>${n?`<div class="ar" style="font-size:26px">${A(ORD[n]||'')}</div>`:''}<div style="font-weight:700">${k==='d'?'Диалог':k==='w'?'Словарь':k==='g'?'Грамматика':n?'Упражнения':'Упражнения по всей главе'}</div></div>`;
+ const tog=`<div class="row" style="margin:12px 0;justify-content:center"><button class="chip ${U.har?'on':''}" data-act="har">Огласовки</button><button class="chip ${U.ru?'on':''}" data-act="ru">Перевод</button></div>`;
+ if(k==='w')return head+tog+`<div class="wcards">${ws.map(w=>`<button class="wc" data-say="w:${w.id}"><span class="ar">${A(w.ar)}</span><span class="small mut">${esc(w.tr)}</span>${U.ru?`<div style="font-weight:700;margin-top:4px">${esc(w.ru)}</div>`:''}${w.plural?`<div class="small mut">мн. ч. <span class="ar">${A(w.plural)}</span></div>`:''}${w.root?`<div class="small mut">корень <span class="ar">${esc(w.root)}</span></div>`:''}</button>`).join('')}</div>
+  <div class="row" style="margin-top:16px;justify-content:center"><button class="btn" data-act="cards" data-ch="${c.id}" data-les="${n}">Карточки</button><button class="btn alt" data-act="part" data-k="x" data-les="${n}">К упражнениям</button></div>`;
+ if(k==='d')return head+tog+`<p class="mut small" style="text-align:center;margin-top:-4px">Нажмите на фразу, чтобы услышать её. Выключите перевод, чтобы проверить себя.</p>
+  ${[...new Set(ls.map(l=>l.section||''))].map(sec=>`${sec?`<h3 style="margin:22px 0 4px;color:var(--ind)">${esc(sec)}</h3>`:''}<div>${ls.filter(l=>(l.section||'')===sec).map(l=>`<div class="line" data-say="l:${l.id}">${l.speaker_name?`<span class="who ${l.speaker==='b'?'b':l.speaker==='c'?'c':''}" title="${esc(l.speaker_name)}"><span class="ar" style="font-size:18px;line-height:1">${esc(strip(l.speaker_name).slice(0,1))}</span></span>`:'<span class="who" style="background:var(--line)"></span>'}<div>${l.speaker_name?`<div class="small mut ar" style="text-align:right">${A(l.speaker_name)}</div>`:''}<span class="ar">${A(l.ar)}</span>${U.ru?`<div class="mut">${esc(l.ru)}</div>`:''}</div></div>`).join('')}</div>`).join('')}
+  ${ws.length?`<div class="row" style="margin-top:16px;justify-content:center"><button class="btn" data-act="part" data-k="w" data-les="${n}">Словарь урока</button></div>`:''}`;
+ if(k==='g')return head+`<div class="card gram">${esc(c.grammar)}</div>`;
+ const L=n||0,many=ws.length>=4||chWords(c.id).length>=4;
+ return head+`<p class="mut" style="text-align:center">Выберите упражнение. Слова, в которых вы ошибаетесь, попадаются чаще.</p><div class="list" style="max-width:520px;margin:12px auto">
+ ${many?`<button class="li" data-act="quiz" data-type="mix" data-n="${n?6:10}" data-ch="${c.id}" data-les="${L}"><span>Смешанный тест<span class="sub">перевод, аудирование</span></span><span class="ic">✅</span></button>
+ <button class="li" data-act="cards" data-ch="${c.id}" data-les="${L}"><span>Карточки<span class="sub">знаю / учу</span></span><span class="ic">🃏</span></button>
+ <button class="li" data-act="quiz" data-type="listen" data-n="6" data-ch="${c.id}" data-les="${L}"><span>Аудирование<span class="sub">услышь и выбери</span></span><span class="ic">🎧</span></button>
+ <button class="li" data-act="quiz" data-type="ru2ar" data-n="6" data-ch="${c.id}" data-les="${L}"><span>Обратный перевод<span class="sub">с русского на арабский</span></span><span class="ic">🔁</span></button>`:''}
+ ${ls.some(l=>l.ar.trim().split(/\s+/).length>1)?`<button class="li" data-act="quiz" data-type="build" data-n="4" data-ch="${c.id}" data-les="${L}"><span>Сборка фраз<span class="sub">из диалога</span></span><span class="ic">🧱</span></button>`:''}
+ ${!many&&!ls.length?'<p class="mut">В этом уроке пока нет материала для упражнений.</p>':''}</div>`},
+
+words(){const q=U.q.trim().toLowerCase();const pr=id=>D.prog.get(id)||{};
+ const list=W().filter(w=>(U.filter==='all'||(U.filter==='known'?pr(w.id).known:U.filter==='learn'?!pr(w.id).known:(pr(w.id).mistakes||0)>0))&&(!q||w.ru.toLowerCase().includes(q)||strip(w.ar).includes(strip(q))||(w.tr||'').toLowerCase().includes(q)));
+ const kn=W().filter(w=>pr(w.id).known).length;
+ return `<h1>Мои слова</h1><p class="mut">${kn} из ${W().length} выучено. Слова с ошибками попадаются в тестах чаще.</p>
+ <div class="row" style="margin:14px 0"><button class="btn" data-act="cards">Карточки</button><button class="btn alt" data-act="quiz" data-type="mix" data-n="8">Тест по всем словам</button></div>
+ <input type="search" id="q" placeholder="Поиск по-русски или по-арабски" value="${esc(U.q)}" aria-label="Поиск">
+ <div class="row" style="margin:12px 0">${[['all','Все'],['learn','Учу'],['known','Знаю'],['mist','С ошибками']].map(([k,t])=>`<button class="chip ${U.filter===k?'on':''}" data-filter="${k}">${t}</button>`).join('')}</div>
+ <div class="list">${list.length?list.map(w=>`<div class="item"><button class="play" data-say="w:${w.id}" aria-label="Слушать">${PLAY}</button><div class="grow"><b>${esc(w.ru)}</b><div class="small mut">${esc(w.tr)}${pr(w.id).mistakes?` · ошибок: ${pr(w.id).mistakes}`:''}</div></div><span class="ar wrd">${A(w.ar)}</span><button class="chip ${pr(w.id).known?'on':''}" data-known="${w.id}">${pr(w.id).known?'Знаю':'Учу'}</button></div>`).join(''):'<p class="mut">Ничего не найдено.</p>'}</div>`},
+
+hw(){return `<h1>Домашние задания</h1><p class="mut">Результат уходит учителю сразу после выполнения. Каждое задание сдаётся один раз.</p>
+ <div class="list" style="margin-top:14px">${D.asg.length?D.asg.slice().sort((a,b)=>!!mySub(a.id)-!!mySub(b.id)||(a.due_date||'').localeCompare(b.due_date||'')).map(a=>{const s=mySub(a.id);const late=!s&&a.due_date&&a.due_date<today();
+ return `<div class="item"><div class="grow"><b>${esc(a.title)}</b><div class="small mut">${TYPES[a.type]} · ${a.question_count} вопр. · ${esc(chName(a.chapter_id))} · до ${fmt(a.due_date)}</div>${s?.teacher_comment?`<div style="margin-top:6px"><span class="tag">Учитель</span> ${esc(s.teacher_comment)}</div>`:''}</div>${s?`<span class="tag ok">${s.score}%</span>`:`${late?'<span class="tag late">просрочено</span>':''}<button class="btn" data-act="hw" data-id="${a.id}">Начать</button>`}</div>`}).join(''):'<p class="mut">Заданий пока нет.</p>'}</div>`},
+
+/* ----- учитель ----- */
+group(){if(!D.groups.length)return `<h1>Создайте первую группу</h1><p class="mut">Ученики вступят в неё по коду приглашения.</p><form class="form card" id="f-group" style="margin-top:14px"><div><label for="g-name">Название группы</label><input type="text" id="g-name" required placeholder="Например: Арабский, том 1, вечерняя"></div><button class="btn">Создать группу</button></form>`;
+ const g=D.group,last=D.asg.slice(0,3);
+ const rows=D.members.slice().sort((a,b)=>b.xp-a.xp);
+ return `<div class="row" style="justify-content:space-between"><div><h1>${esc(g.name)}</h1><p class="mut" style="margin:0">${rows.length} учеников</p></div>
+ ${D.groups.length>1?`<select id="g-sel" aria-label="Группа" style="width:auto">${D.groups.map(x=>`<option value="${x.id}" ${x.id===g.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select>`:''}</div>
+ <div class="grid" style="margin:16px 0"><div class="card"><div class="mut small">Код приглашения — продиктуйте или отправьте ученикам</div><div class="code">${esc(g.invite_code)}</div><button class="btn sm alt" data-act="copy" data-v="${esc(g.invite_code)}">Скопировать приглашение</button></div>
+ <div class="card"><div class="mut small">Занимались сегодня</div><div style="font-size:34px;font-weight:800">${rows.filter(r=>r.last_active===today()).length} из ${rows.length}</div><div class="small mut">${rows.filter(r=>!r.last_active||r.last_active<new Date(Date.now()-2*864e5).toISOString().slice(0,10)).length} не заходили 3+ дня</div></div></div>
+ ${rows.length?`<div class="scroll"><table><thead><tr><th>Ученик</th><th class="n">Очки</th><th class="n hide-s">Серия</th><th class="n hide-s">Был(а)</th>${last.map(a=>`<th class="n" title="${esc(a.title)}">${esc(a.title.slice(0,14))}${a.title.length>14?'…':''}</th>`).join('')}</tr></thead><tbody>
+ ${rows.map(r=>`<tr><td>${esc(r.full_name)}</td><td class="n">${r.xp}</td><td class="n hide-s">${r.streak}</td><td class="n hide-s">${r.last_active?fmt(r.last_active):'—'}</td>${last.map(a=>{const s=D.subs.find(s=>s.assignment_id===a.id&&s.student_id===r.id);return `<td class="n">${s?s.score+'%':'<span class="tag late">нет</span>'}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>`:'<p class="mut">Пока никто не вступил. Отправьте ученикам ссылку на приложение и код.</p>'}
+ <h2>Новая группа</h2><form class="row" id="f-group"><input type="text" id="g-name" required placeholder="Название" style="max-width:320px"><button class="btn alt">Создать</button></form>`},
+
+asg(){if(!D.group)return V.group();
+ if(U.openAsg){const a=D.asg.find(x=>x.id===U.openAsg);if(a)return V.asgOne(a)}
+ return `<h1>Задания · ${esc(D.group.name)}</h1>
+ <div class="list" style="margin:14px 0 8px">${D.asg.length?D.asg.map(a=>{const c=D.subs.filter(s=>s.assignment_id===a.id).length;return `<button class="item" data-act="asgopen" data-id="${a.id}" style="text-align:start;width:100%"><div class="grow"><b>${esc(a.title)}</b><div class="small mut">${TYPES[a.type]} · ${a.question_count} вопр. · ${esc(chName(a.chapter_id))} · до ${fmt(a.due_date)}</div></div><span class="tag ${c>=D.members.length&&c?'ok':''}">сдали ${c} из ${D.members.length}</span></button>`}).join(''):'<p class="mut">Заданий ещё нет.</p>'}</div>
+ <h2>Новое задание</h2><form class="form card" id="f-asg">
+ <div><label for="a-t">Название</label><input type="text" id="a-t" required placeholder="Например: слова главы 1"></div>
+ <div><label for="a-c">Глава</label><select id="a-c"><option value="">Все главы</option>${D.chapters.map(c=>`<option value="${c.id}">Том ${c.book} · Глава ${c.number} — ${esc(c.title)}</option>`).join('')}</select></div>
+ <div><label for="a-y">Тип упражнения</label><select id="a-y">${Object.entries(TYPES).map(([k,t])=>`<option value="${k}">${t}</option>`).join('')}</select></div>
+ <div class="row"><div style="flex:1"><label for="a-n">Вопросов</label><select id="a-n"><option>4</option><option>6</option><option selected>8</option><option>10</option><option>15</option></select></div>
+ <div style="flex:1"><label for="a-d">Срок сдачи</label><input type="date" id="a-d" value="${new Date(Date.now()+3*864e5).toISOString().slice(0,10)}"></div></div>
+ <button class="btn">Отправить группе</button></form>`},
+
+asgOne(a){return `<button class="chip" data-act="asgback">← Все задания</button><h1 style="margin-top:14px">${esc(a.title)}</h1>
+ <p class="mut">${TYPES[a.type]} · ${a.question_count} вопр. · ${esc(chName(a.chapter_id))} · до ${fmt(a.due_date)}</p>
+ <div class="list" style="margin-top:14px">${D.members.slice().sort((x,y)=>x.full_name.localeCompare(y.full_name)).map(m=>{const s=D.subs.find(s=>s.assignment_id===a.id&&s.student_id===m.id);
+ return `<div class="item"><div class="grow"><b>${esc(m.full_name)}</b>${s?`<div class="small mut">сдано ${new Date(s.submitted_at).toLocaleDateString('ru-RU')}${s.answers?.bad?.length?` · ошибки: ${s.answers.bad.map(id=>{const w=D.words.find(w=>w.id===id);return w?esc(w.ru):''}).filter(Boolean).join(', ')}`:''}</div>`:''}</div>
+ ${s?`<span class="tag ok">${s.score}%</span><form class="row" data-sub="${s.id}" style="flex-basis:100%"><input type="text" value="${esc(s.teacher_comment)}" placeholder="Комментарий ученику" style="flex:1"><button class="btn sm">Сохранить</button></form>`:'<span class="tag late">не сдано</span>'}</div>`}).join('')||'<p class="mut">В группе пока нет учеников.</p>'}</div>
+ <div class="row" style="margin-top:20px"><button class="btn del" data-act="asgdel" data-id="${a.id}">Удалить задание</button></div>`},
+
+mat(){const c=D.chapters.find(x=>x.id===U.matCh);const ws=c?chWords(c.id):[],ls=c?chLines(c.id):[];
+ return `<h1>Учебный материал</h1><p class="mut">Слова, диалоги, грамматика и аудио. Изменения сразу видны ученикам.</p>
+ <div class="row" style="margin:14px 0"><select id="m-ch" aria-label="Глава" style="flex:1;max-width:420px">${D.chapters.map(x=>`<option value="${x.id}" ${x.id===U.matCh?'selected':''}>Том ${x.book} · Глава ${x.number} — ${esc(x.title)}</option>`).join('')}</select><button class="btn alt sm" data-act="newch">+ Новая глава</button></div>
+ ${c?`<form class="card form" id="f-ch" style="max-width:none"><div class="row"><div style="width:90px"><label for="c-b">Том</label><input type="text" id="c-b" value="${c.book}" inputmode="numeric"></div><div style="width:90px"><label for="c-n">Глава</label><input type="text" id="c-n" value="${c.number}" inputmode="numeric"></div><div style="flex:1;min-width:200px"><label for="c-t">Название</label><input type="text" id="c-t" value="${esc(c.title)}"></div><div style="flex:1;min-width:200px"><label for="c-ta">По-арабски</label><input type="text" class="arin" id="c-ta" value="${esc(c.title_ar)}"></div></div>
+ <div><label for="c-g">Грамматика главы (необязательно)</label><textarea id="c-g">${esc(c.grammar)}</textarea></div>
+ <div class="row"><button class="btn">Сохранить главу</button><button type="button" class="btn del" data-act="delch" data-id="${c.id}">Удалить главу</button></div></form>
+ <div class="card" style="margin-top:18px"><h3>Озвучка голосом Azure</h3><p class="mut small" style="margin:4px 0 12px">Озвучит все слова и реплики главы, у которых ещё нет звука: ${ws.filter(w=>!w.audio_url).length+ls.filter(l=>!l.audio_url).length} шт. Уже озвученное и ваши записи не трогает.</p><div class="row"><button class="btn" data-act="ttsch" data-id="${c.id}">Озвучить главу</button><span class="small mut" id="tts-st"></span></div></div>
+ <h2>Слова (${ws.length})</h2>
+ <div class="scroll"><table><thead><tr><th>Урок</th><th>Арабский</th><th>Перевод</th><th class="hide-s">Транскрипция</th><th class="hide-s">Мн. ч.</th><th class="hide-s">Корень</th><th>Аудио</th><th></th></tr></thead><tbody>
+ ${ws.map(w=>`<tr data-w="${w.id}"><td><input data-f="lesson" value="${w.lesson??''}" inputmode="numeric" aria-label="Урок" style="width:52px"></td><td><input class="arin" data-f="ar" value="${esc(w.ar)}" aria-label="Арабский"></td><td><input data-f="ru" value="${esc(w.ru)}" aria-label="Перевод"></td><td class="hide-s"><input data-f="tr" value="${esc(w.tr)}" aria-label="Транскрипция"></td><td class="hide-s"><input class="arin" data-f="plural" value="${esc(w.plural)}" aria-label="Множественное число"></td><td class="hide-s"><input class="arin" data-f="root" value="${esc(w.root)}" aria-label="Корень"></td>
+ <td style="white-space:nowrap"><button class="play" data-say="w:${w.id}" title="Прослушать">${PLAY}</button> <button class="btn sm alt" data-rec="w:${w.id}" title="Записать своим голосом">${w.audio_url?'Перезаписать':'Записать'}</button> <label class="btn sm alt" style="display:inline-grid;place-items:center;margin:0">Файл<input type="file" accept="audio/*" data-up="w:${w.id}" hidden></label> <button class="btn sm alt" data-tts="w:${w.id}" title="Озвучить заново голосом Azure">ИИ</button></td>
+ <td><button class="btn sm del" data-act="delw" data-id="${w.id}" aria-label="Удалить">✕</button></td></tr>`).join('')}</tbody></table></div>
+ <div class="row" style="margin-top:10px"><button class="btn" data-act="savew">Сохранить изменения слов</button><button class="btn alt" data-act="addw">+ Слово</button></div>
+ <h2>Диалог (${ls.length} реплик)</h2>
+ <div class="scroll"><table><thead><tr><th>Урок</th><th>Раздел</th><th>Кто</th><th>Голос</th><th>Имя</th><th>Арабский</th><th>Перевод</th><th>Аудио</th><th></th></tr></thead><tbody>
+ ${ls.map(l=>`<tr data-l="${l.id}"><td><input data-f="lesson" value="${l.lesson??''}" inputmode="numeric" aria-label="Урок" style="width:52px"></td><td><input data-f="section" value="${esc(l.section)}" aria-label="Раздел" style="min-width:150px"></td><td><select data-f="speaker" style="width:64px"><option value="a" ${l.speaker!=='b'&&l.speaker!=='c'?'selected':''}>1</option><option value="b" ${l.speaker==='b'?'selected':''}>2</option><option value="c" ${l.speaker==='c'?'selected':''}>3</option></select></td><td><select data-f="voice" style="width:76px"><option value="m" ${l.voice!=='f'?'selected':''}>муж.</option><option value="f" ${l.voice==='f'?'selected':''}>жен.</option></select></td><td><input class="arin" data-f="speaker_name" value="${esc(l.speaker_name)}" aria-label="Имя" style="min-width:90px"></td><td><input class="arin" data-f="ar" value="${esc(l.ar)}" aria-label="Арабский"></td><td><input data-f="ru" value="${esc(l.ru)}" aria-label="Перевод"></td>
+ <td style="white-space:nowrap"><button class="play" data-say="l:${l.id}">${PLAY}</button> <button class="btn sm alt" data-rec="l:${l.id}">${l.audio_url?'Перезаписать':'Записать'}</button> <button class="btn sm alt" data-tts="l:${l.id}" title="Озвучить заново голосом Azure">ИИ</button></td><td><button class="btn sm del" data-act="dell" data-id="${l.id}" aria-label="Удалить">✕</button></td></tr>`).join('')}</tbody></table></div>
+ <div class="row" style="margin-top:10px"><button class="btn" data-act="savel">Сохранить диалог</button><button class="btn alt" data-act="addl">+ Реплика</button></div>
+ <h2>Быстрый импорт слов</h2><p class="mut small">Одна строка — одно слово: <b>арабский | перевод | транскрипция</b> (транскрипция необязательна).</p>
+ <textarea id="imp" class="arin" style="direction:ltr;font-family:Manrope,sans-serif;font-size:16px" placeholder="كِتَابٌ | книга | китāбун"></textarea>
+ <div class="row" style="margin-top:10px"><button class="btn" data-act="import">Добавить в главу ${c.number}</button></div>`:'<p class="mut">Глав пока нет. Создайте первую.</p>'}`},
+
+stats(){if(!D.group)return V.group();
+ const agg=new Map();for(const p of D.gprog)if(p.mistakes)agg.set(p.word_id,(agg.get(p.word_id)||0)+p.mistakes);
+ const top=[...agg].map(([id,c])=>({w:D.words.find(w=>w.id===id),c})).filter(x=>x.w).sort((a,b)=>b.c-a.c).slice(0,10);const mx=top[0]?.c||1;
+ const known=new Map();for(const p of D.gprog)if(p.known)known.set(p.student_id,(known.get(p.student_id)||0)+1);
+ return `<h1>Где группе трудно</h1><p class="mut">Слова, в которых ученики группы «${esc(D.group.name)}» ошибались чаще всего.</p>
+ <div class="card" style="margin-top:14px">${top.length?top.map(x=>`<div class="hbar"><span class="ar">${A(x.w.ar)}</span><span class="b" style="width:${x.c/mx*100}%"></span><b style="text-align:right">${x.c}</b></div>`).join(''):'<p class="mut" style="margin:0">Данных пока нет — они появятся после первых тестов.</p>'}</div>
+ ${top.length?`<div class="row" style="margin-top:14px"><button class="btn" data-act="repeat">Задать повторение трудных слов</button></div>`:''}
+ <h2>Выучено слов</h2><div class="card">${D.members.length?D.members.slice().sort((a,b)=>(known.get(b.id)||0)-(known.get(a.id)||0)).map(m=>{const k=known.get(m.id)||0;return `<div class="hbar" style="grid-template-columns:minmax(110px,200px) minmax(0,1fr) 48px"><span>${esc(m.full_name)}</span><span class="b" style="background:var(--ind);width:${W().length?k/W().length*100:0}%"></span><b style="text-align:right">${k}</b></div>`}).join(''):'<p class="mut" style="margin:0">В группе пока нет учеников.</p>'}</div>`}};
+
+/* ===== тесты ===== */
+let Q=null;
+function pool(chId,ids){let ws=ids?D.words.filter(w=>ids.includes(w.id)):chId?chWords(chId):D.words;return ws}
+function pickWords(ws,n){const p=ws.map(w=>({w,wt:1+(D.prog.get(w.id)?.mistakes||0)*2+(D.prog.get(w.id)?.known?0:1)}));const out=[];
+ while(out.length<n&&p.length){let t=p.reduce((a,x)=>a+x.wt,0),r=Math.random()*t;let k=p.findIndex(x=>(r-=x.wt)<0);if(k<0)k=p.length-1;out.push(p[k].w);p.splice(k,1)}return out}
+const opts=(w,ws,key)=>shuf([w,...shuf(ws.filter(x=>x.id!==w.id&&x[key]!==w[key])).slice(0,3)]);
+function makeQ(type,n,chId,ids,les){const base=pool(chId,ids);let ws=les?base.filter(w=>LN(w)===les):base;const dp=ws.length>=4?ws:base.length>=4?base:D.words;if(!ws.length)ws=base.length?base:D.words;
+ if(type==='build'){const ls=(chId?chLines(chId):D.lines).filter(l=>!les||LN(l)===les).filter((l,i,a)=>a.findIndex(x=>x.ar===l.ar)===i&&l.ar.trim().split(/\s+/).length>1);
+  if(ls.length){const all=D.lines.flatMap(x=>x.ar.trim().split(/\s+/));return shuf(ls).slice(0,n).map(l=>{const t=l.ar.trim().split(/\s+/);const extra=shuf(all.filter(w=>!t.includes(w))).slice(0,2);return {k:'build',l,t,tiles:shuf([...t,...extra])}})}
+  type='mix'}
+ const ks=['ar2ru','ru2ar','listen'];return pickWords(ws,n).map((w,j)=>{const k=type==='mix'?ks[j%3]:type;return {k,w,o:opts(w,dp,k==='ar2ru'?'ru':'ar')}})}
+function startQuiz(type,n,chId,asgId,les){if(D.words.length<4){toast('Слишком мало слов для теста');return}
+ Q={list:makeQ(type,n,chId,null,les),at:0,ok:0,bad:[],asgId,ans:null,built:[],pick:null};$('ov').classList.add('show');drawQ();if(Q.list[0].k==='listen')setTimeout(()=>say(Q.list[0].w),300)}
+function drawQ(){const q=Q.list[Q.at];let body='';
+ if(q.k==='ar2ru')body=`<div class="qask">Выберите перевод</div><div class="ar qbig">${A(q.w.ar)}</div><div class="opts">${q.o.map(x=>`<button class="opt" data-o="${x.id}">${esc(x.ru)}</button>`).join('')}</div>`;
+ if(q.k==='ru2ar')body=`<div class="qask">Как это по-арабски?</div><div class="qru">${esc(q.w.ru)}</div><div class="opts">${q.o.map(x=>`<button class="opt ar" data-o="${x.id}">${A(x.ar)}</button>`).join('')}</div>`;
+ if(q.k==='listen')body=`<div class="qask">Послушайте и выберите слово</div><div style="text-align:center;margin:10px 0 20px"><button class="play" style="width:96px;height:96px;margin:auto" data-say="w:${q.w.id}" aria-label="Слушать"><svg viewBox="0 0 24 24" fill="currentColor" style="width:40px;height:40px"><path d="M8 5v14l11-7z"/></svg></button></div><div class="opts">${q.o.map(x=>`<button class="opt ar" data-o="${x.id}">${A(x.ar)}</button>`).join('')}</div>`;
+ if(q.k==='build')body=`<div class="qask">Соберите фразу по-арабски</div><div class="qru">${esc(q.l.ru)}</div><div class="built">${Q.built.map((ti,p)=>`<button class="tile" data-un="${p}">${A(q.tiles[ti])}</button>`).join('')}</div><div class="tiles">${q.tiles.map((t,ti)=>`<button class="tile ${Q.built.includes(ti)?'used':''}" data-ti="${ti}">${A(t)}</button>`).join('')}</div>`;
+ let fb='';if(Q.ans!=null){const right=q.k==='build'?q.l.ar:q.k==='ar2ru'?q.w.ru:q.w.ar;
+  fb=`<div class="fbbox ${Q.ans?'g':'w'}">${Q.ans?'Верно! +10 очков':'Правильный ответ:'} ${Q.ans?'':(q.k==='ar2ru'?`<div>${esc(right)}</div>`:`<div class="ar">${A(right)}</div>`)}</div><button class="btn" style="width:100%" data-act="next">${Q.at+1<Q.list.length?'Дальше':'Завершить'}</button>`}
+ else if(q.k==='build')fb=`<button class="btn" style="width:100%" data-act="check" ${Q.built.length?'':'disabled'}>Проверить</button>`;
+ $('ov').innerHTML=`<div class="qz"><div class="qtop"><button class="x" data-act="close" aria-label="Закрыть">×</button><div class="prog"><i style="width:${Q.at/Q.list.length*100}%"></i></div></div>${body}<div class="fb">${fb}</div></div>`;
+ if(Q.ans!=null&&q.k!=='build')document.querySelectorAll('.opt').forEach(b=>{b.disabled=true;if(+b.dataset.o===q.w.id)b.classList.add('good');else if(+b.dataset.o===Q.pick)b.classList.add('wrong')})}
+function answer(good){const q=Q.list[Q.at];Q.ans=good;if(good)Q.ok++;else Q.bad.push(q);drawQ();if(q.k==='build')say({ar:q.l.ar,audio_url:q.l.audio_url});else if(q.k==='ar2ru')say(q.w)}
+async function finish(){const n=Q.list.length,sc=Math.round(Q.ok/n*100),xp=Q.ok*10+(sc===100?20:0);const asgId=Q.asgId,bad=Q.bad;
+ $('ov').innerHTML=`<div class="qz"><div class="loading">Сохраняем результат…</div></div>`;
+ let sent=false;
+ try{
+  if(!isT()){
+   const r=await sb.rpc('add_xp',{amount:Math.min(xp,200)});if(r.error)throw r.error;
+   const badW=[...new Set(bad.filter(q=>q.w).map(q=>q.w.id))];
+   if(badW.length){const rows=badW.map(id=>{const p=D.prog.get(id)||{};return {student_id:D.user.id,word_id:id,known:!!p.known,mistakes:(p.mistakes||0)+1,updated_at:new Date().toISOString()}});
+    const u=await sb.from('word_progress').upsert(rows);if(u.error)throw u.error;rows.forEach(r=>D.prog.set(r.word_id,r))}
+   if(asgId){const s=await sb.from('submissions').insert({assignment_id:asgId,student_id:D.user.id,score:sc,answers:{bad:badW,total:n}}).select().single();if(s.error)throw s.error;D.subs.push(s.data);sent=true}
+   await loadMe();const m=D.members.find(x=>x.id===D.me.id);if(m)Object.assign(m,{xp:D.me.xp,streak:D.me.streak,last_active:D.me.last_active})}
+ }catch(e){fail(e)}
+ $('ov').innerHTML=`<div class="qz"><div class="res"><div class="mut" style="font-weight:700">${sc>=90?'Отличная работа!':sc>=60?'Хороший результат':'Стоит повторить'}</div><div class="score">${sc}%</div><p>${Q.ok} из ${n} верно${isT()?'':` · <b>+${xp} очков</b>`}${sc===100&&!isT()?' (бонус за 100%)':''}</p>${sent?'<p><span class="tag ok">Результат отправлен учителю</span></p>':''}</div>
+ ${bad.length?`<h2>Повторить</h2><div class="list">${bad.map(q=>q.k==='build'?`<div class="item"><span class="grow">${esc(q.l.ru)}</span><span class="ar wrd">${A(q.l.ar)}</span></div>`:`<div class="item"><button class="play" data-say="w:${q.w.id}">${PLAY}</button><span class="grow">${esc(q.w.ru)}</span><span class="ar wrd">${A(q.w.ar)}</span></div>`).join('')}</div>`:''}
+ <div class="fb"><button class="btn" style="width:100%" data-act="close">Готово</button></div></div>`}
+
+/* ===== карточки ===== */
+let F=null;
+function startCards(chId,les){const ws=(chId?chWords(chId):D.words).filter(w=>!les||LN(w)===les);if(!ws.length){toast('Слов пока нет');return}
+ const un=ws.filter(w=>!D.prog.get(w.id)?.known),kn=ws.filter(w=>D.prog.get(w.id)?.known);
+ F={list:shuf(un).concat(shuf(kn)),at:0,dir:'ar',fl:false,kn:0};$('ov').classList.add('show');drawF()}
+function drawF(){if(F.at>=F.list.length){$('ov').innerHTML=`<div class="qz"><div class="res"><div class="score">${F.kn}</div><p>слов отмечено «знаю» из ${F.list.length}</p></div><div class="fb"><button class="btn" style="width:100%" data-act="close">Готово</button></div></div>`;return}
+ const w=F.list[F.at];const front=F.dir==='ar'?`<span class="ar">${A(w.ar)}</span>`:`<b style="font-size:30px">${esc(w.ru)}</b>`;const back=F.dir==='ar'?`<div><b style="font-size:28px">${esc(w.ru)}</b><div class="mut">${esc(w.tr)}</div></div>`:`<div><span class="ar">${A(w.ar)}</span><div class="mut">${esc(w.tr)}</div></div>`;
+ $('ov').innerHTML=`<div class="qz"><div class="qtop"><button class="x" data-act="close" aria-label="Закрыть">×</button><div class="prog"><i style="width:${F.at/F.list.length*100}%"></i></div><span class="small mut">${F.at+1}/${F.list.length}</span></div>
+ <div class="row" style="margin-top:14px;justify-content:center"><button class="chip ${F.dir==='ar'?'on':''}" data-dir="ar">Арабский → русский</button><button class="chip ${F.dir==='ru'?'on':''}" data-dir="ru">Русский → арабский</button></div>
+ <div class="flash ${F.fl?'fl':''}" id="fc" role="button" tabindex="0" aria-label="Перевернуть карточку"><div class="fcin"><div class="face">${front}</div><div class="face bk">${back}</div></div></div>
+ <p class="mut small" style="text-align:center;margin-top:-8px">Нажмите на карточку, чтобы перевернуть</p>
+ <div class="fb row" style="justify-content:center"><button class="play" data-say="w:${w.id}" aria-label="Слушать">${PLAY}</button><button class="btn alt" data-fc="0" style="flex:1">Повторить</button><button class="btn" data-fc="1" style="flex:1">Знаю</button></div></div>`}
+async function setKnown(id,known){const p=D.prog.get(id)||{};const row={student_id:D.user.id,word_id:id,known,mistakes:p.mistakes||0,updated_at:new Date().toISOString()};D.prog.set(id,row);
+ if(isT())return;const r=await sb.from('word_progress').upsert(row);if(r.error)fail(r.error)}
+
+/* ===== аудио учителя ===== */
+async function uploadAudio(key,blob){const [t,id]=key.split(':');const ext=(blob.type.includes('mp4')||blob.type.includes('m4a'))?'m4a':blob.type.includes('mpeg')?'mp3':blob.type.includes('ogg')?'ogg':blob.type.includes('wav')?'wav':'webm';
+ const path=`${t==='w'?'words':t==='l'?'lines':'chapters'}/${id}-${Date.now()}.${ext}`;
+ const up=await sb.storage.from('audio').upload(path,blob,{contentType:blob.type||'audio/mpeg',upsert:false});if(up.error)throw up.error;
+ const url=sb.storage.from('audio').getPublicUrl(path).data.publicUrl;
+ const tbl=t==='w'?'words':t==='l'?'dialog_lines':'chapters',col=t==='c'?'dialog_audio':'audio_url';
+ const r=await sb.from(tbl).update({[col]:url}).eq('id',+id);if(r.error)throw r.error;
+ const arr=t==='w'?D.words:t==='l'?D.lines:D.chapters;const o=arr.find(x=>x.id===+id);if(o)o[col]=url;toast('Аудио сохранено');render()}
+let REC=null;
+async function toggleRec(btn,key){
+ if(REC){REC.mr.stop();return}
+ try{const st=await navigator.mediaDevices.getUserMedia({audio:true});const mr=new MediaRecorder(st);const ch=[];
+  mr.ondataavailable=e=>ch.push(e.data);mr.onstop=async()=>{st.getTracks().forEach(t=>t.stop());const b=new Blob(ch,{type:mr.mimeType||'audio/webm'});REC=null;try{await uploadAudio(key,b)}catch(e){fail(e);render()}};
+  REC={mr};mr.start();btn.classList.add('rec');btn.textContent='■ Стоп'}catch(e){toast('Нет доступа к микрофону')}}
+
+/* ===== сохранение материала ===== */
+async function saveRows(sel,tbl,arr){const rows=[...document.querySelectorAll(sel)].map(tr=>{const id=+tr.dataset[sel==='tr[data-w]'?'w':'l'];const o={id};tr.querySelectorAll('[data-f]').forEach(i=>{o[i.dataset.f]=i.value.trim()||null});return o});
+ for(const o of rows){if(!o.ar||!o.ru){toast('У каждой строки должны быть арабский текст и перевод');return}}
+ for(const o of rows){const {id,...rest}=o;const r=await sb.from(tbl).update(rest).eq('id',id);if(r.error)return fail(r.error);Object.assign(arr.find(x=>x.id===id),rest)}
+ toast('Сохранено');render()}
+async function ttsErr(e){try{const j=await e.context.json();return j.error||e.message}catch(_){return e?.message||'Ошибка озвучки'}}
+async function reloadAll(){if(isT())await loadTeacher();else await loadStudent();render()}
+
+/* ===== события ===== */
+document.addEventListener('click',async e=>{const t=e.target.closest('button,[data-say],#fc');if(!t)return;const d=t.dataset;
+ try{
+ if(d.auth){U.auth=d.auth;U.authErr='';render();return}
+ if(t.id==='logout'){await sb.auth.signOut();return}
+ if(d.tab){if(d.tab==='lessons')U.book=null;U.tab=d.tab;U.lessonOpen=false;U.part=null;U.openAsg=null;render();window.scrollTo(0,0);return}
+ if(t.id==='fc'){F.fl=!F.fl;$('fc').classList.toggle('fl',F.fl);return}
+ if(d.dir){F.dir=d.dir;F.fl=false;drawF();return}
+ if(d.fc!=null){const w=F.list[F.at];if(d.fc==='1')F.kn++;setKnown(w.id,d.fc==='1');F.at++;F.fl=false;drawF();return}
+ if(d.o!=null&&Q&&Q.ans==null){Q.pick=+d.o;answer(+d.o===Q.list[Q.at].w.id);return}
+ if(d.ti!=null&&Q&&Q.ans==null){Q.built.push(+d.ti);drawQ();return}
+ if(d.un!=null&&Q&&Q.ans==null){Q.built.splice(+d.un,1);drawQ();return}
+ if(d.filter){U.filter=d.filter;render();return}
+ if(d.known!=null){const id=+d.known;await setKnown(id,!D.prog.get(id)?.known);render();return}
+ if(d.rec){toggleRec(t,d.rec);return}
+ if(d.tts){t.disabled=true;t.textContent='…';const r=await sb.functions.invoke('tts',{body:{item:d.tts}});if(r.error||r.data?.error)throw new Error(r.data?.error||await ttsErr(r.error));if(r.data.errors?.length)toast(r.data.errors[0]);else toast('Озвучено');await loadContent();render();return}
+ if(d.say!=null){const o=byKey(d.say);if(o)say(o,t.classList.contains('line')?t:null);return}
+ const a=d.act;if(!a)return;
+ if(a==='open'){U.ch=+d.id;U.book=D.chapters.find(c=>c.id===U.ch)?.book;U.tab='lessons';U.lessonOpen=true;U.part=null;render();window.scrollTo(0,0)}
+ else if(a==='back'){U.lessonOpen=false;U.part=null;render()}
+ else if(a==='book'){U.book=+d.id;render();window.scrollTo(0,0)}
+ else if(a==='books'){U.book=null;render();window.scrollTo(0,0)}
+ else if(a==='har'){U.har=!U.har;render()}
+ else if(a==='ru'){U.ru=!U.ru;render()}
+ else if(a==='rate'){U.rate=U.rate===.85?.6:U.rate===.6?1.05:.85;render()}
+ else if(a==='quiz')startQuiz(d.type,+d.n,d.ch?+d.ch:null,null,+d.les||0);
+ else if(a==='part'){U.part={k:d.k,les:+d.les||0};render();window.scrollTo(0,0)}
+ else if(a==='partback'){U.part=null;render();window.scrollTo(0,0)}
+ else if(a==='hw'){const x=D.asg.find(x=>x.id===d.id);if(x)startQuiz(x.type,x.question_count,x.chapter_id,x.id)}
+ else if(a==='cards')startCards(d.ch?+d.ch:null,+d.les||0);
+ else if(a==='check'){const q=Q.list[Q.at];answer(Q.built.map(ti=>q.tiles[ti]).join(' ')===q.t.join(' '))}
+ else if(a==='next'){Q.at++;Q.ans=null;Q.built=[];Q.pick=null;if(Q.at>=Q.list.length)await finish();else{drawQ();const q=Q.list[Q.at];if(q.k==='listen')say(q.w)}}
+ else if(a==='close'){$('ov').classList.remove('show');$('ov').innerHTML='';Q=null;F=null;try{speechSynthesis.cancel()}catch(e){}render()}
+ else if(a==='copy'){const txt=`Ассаляму алейкум! Приложение для уроков арабского: ${location.origin+location.pathname}\nЗарегистрируйтесь и введите код группы: ${d.v}`;try{await navigator.clipboard.writeText(txt);toast('Приглашение скопировано')}catch(e){toast('Код: '+d.v)}}
+ else if(a==='asgopen'){U.openAsg=d.id;render();window.scrollTo(0,0)}
+ else if(a==='asgback'){U.openAsg=null;render()}
+ else if(a==='asgdel'){if(t.dataset.sure!=='1'){t.dataset.sure='1';t.textContent='Точно удалить? Результаты учеников тоже удалятся';return}
+  const r=await sb.from('assignments').delete().eq('id',d.id);if(r.error)throw r.error;U.openAsg=null;toast('Задание удалено');await reloadAll()}
+ else if(a==='repeat'){const agg=new Map();for(const p of D.gprog)if(p.mistakes)agg.set(p.word_id,(agg.get(p.word_id)||0)+p.mistakes);
+  const r=await sb.from('assignments').insert({group_id:D.group.id,title:'Повторение трудных слов',type:'mix',question_count:Math.min(10,Math.max(4,agg.size)),due_date:new Date(Date.now()+3*864e5).toISOString().slice(0,10)});if(r.error)throw r.error;toast('Задание отправлено группе');await reloadAll()}
+ else if(a==='newch'){const b=D.chapters.at(-1);const book=b?.book||1,num=b?b.number+1:1;const r=await sb.from('chapters').insert({book,number:num,title:'Новая глава'}).select().single();if(r.error)throw r.error;D.chapters.push(r.data);U.matCh=r.data.id;render()}
+ else if(a==='delch'){if(t.dataset.sure!=='1'){t.dataset.sure='1';t.textContent='Точно удалить главу со всеми словами?';return}
+  const r=await sb.from('chapters').delete().eq('id',+d.id);if(r.error)throw r.error;D.chapters=D.chapters.filter(c=>c.id!==+d.id);D.words=D.words.filter(w=>w.chapter_id!==+d.id);D.lines=D.lines.filter(l=>l.chapter_id!==+d.id);U.matCh=D.chapters[0]?.id||null;toast('Глава удалена');render()}
+ else if(a==='ttsch'){t.disabled=true;const st=$('tts-st');let total=0,sum=0;
+  for(let i=0;i<60;i++){const r=await sb.functions.invoke('tts',{body:{chapter_id:+d.id}});if(r.error||r.data?.error){t.disabled=false;throw new Error(r.data?.error||await ttsErr(r.error))}
+   const x=r.data;if(!total)total=x.total;sum+=x.done;if(st)st.textContent=`Озвучено ${sum} из ${total}…`;if(x.errors?.length)toast(x.errors[0]);if(!x.remaining||!x.done)break}
+  toast(`Готово: озвучено ${sum}`);await loadContent();render()}
+ else if(a==='savew')await saveRows('tr[data-w]','words',D.words);
+ else if(a==='savel')await saveRows('tr[data-l]','dialog_lines',D.lines);
+ else if(a==='addw'){const s=chWords(U.matCh).length+1;const r=await sb.from('words').insert({chapter_id:U.matCh,ar:'—',ru:'—',sort:s,lesson:chWords(U.matCh).at(-1)?.lesson||1}).select().single();if(r.error)throw r.error;D.words.push(r.data);render()}
+ else if(a==='addl'){const s=chLines(U.matCh).length+1;const prev=chLines(U.matCh).at(-1);const r=await sb.from('dialog_lines').insert({chapter_id:U.matCh,ar:'—',ru:'—',speaker:s%2?'a':'b',section:prev?.section||null,lesson:prev?.lesson||1,sort:(prev?.sort||0)+1}).select().single();if(r.error)throw r.error;D.lines.push(r.data);render()}
+ else if(a==='delw'||a==='dell'){const tbl=a==='delw'?'words':'dialog_lines';const r=await sb.from(tbl).delete().eq('id',+d.id);if(r.error)throw r.error;if(a==='delw')D.words=D.words.filter(w=>w.id!==+d.id);else D.lines=D.lines.filter(l=>l.id!==+d.id);render()}
+ else if(a==='import'){const lines=$('imp').value.split('\n').map(s=>s.trim()).filter(Boolean);let s=chWords(U.matCh).length;
+  const rows=lines.map(l=>l.split(/\s*[|\t]\s*/)).filter(p=>p[0]&&p[1]).map(p=>({chapter_id:U.matCh,ar:p[0],ru:p[1],tr:p[2]||null,sort:++s}));
+  if(!rows.length){toast('Не найдено строк вида «арабский | перевод»');return}
+  const r=await sb.from('words').insert(rows).select();if(r.error)throw r.error;D.words.push(...r.data);toast(`Добавлено слов: ${r.data.length}`);render()}
+ }catch(err){fail(err)}
+});
+document.addEventListener('keydown',e=>{if(e.target.id==='fc'&&(e.key==='Enter'||e.key===' ')){e.preventDefault();e.target.click()}});
+document.addEventListener('input',e=>{if(e.target.id==='q'){U.q=e.target.value;const pos=e.target.selectionStart;render();const q=$('q');q.focus();q.setSelectionRange(pos,pos)}});
+document.addEventListener('change',async e=>{const t=e.target;try{
+ if(t.id==='g-sel'){D.group=D.groups.find(g=>g.id===t.value);U.openAsg=null;await loadTeacher();render()}
+ else if(t.id==='m-ch'){U.matCh=+t.value;render()}
+ else if(t.dataset.up&&t.files[0])await uploadAudio(t.dataset.up,t.files[0]);
+ else if(t.dataset.upch&&t.files[0])await uploadAudio('c:'+t.dataset.upch,t.files[0]);
+ }catch(err){fail(err)}});
+document.addEventListener('submit',async e=>{const f=e.target;e.preventDefault();const btn=f.querySelector('button:not([type=button])');if(btn)btn.disabled=true;
+ try{
+ if(f.id==='f-auth'){U.authErr='';const email=$('a-email').value.trim();
+  if(U.auth==='forgot'){const r=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});if(r.error)throw r.error;U.auth='login';U.authErr='';toast('Ссылка отправлена. Проверьте почту');render();return}
+  const pass=$('a-pass').value;
+  if(U.auth==='reg'){const name=$('a-name').value.trim();const r=await sb.auth.signUp({email,password:pass,options:{data:{full_name:name},emailRedirectTo:location.origin+location.pathname}});if(r.error)throw r.error;
+   if(!r.data.session){U.auth='login';toast('Мы отправили письмо для подтверждения почты');render()}return}
+  const r=await sb.auth.signInWithPassword({email,password:pass});if(r.error)throw r.error;return}
+ if(f.id==='f-newpass'){const r=await sb.auth.updateUser({password:$('np').value});if(r.error)throw r.error;U.recovery=false;toast('Пароль изменён');boot();return}
+ if(f.id==='f-join'){const r=await sb.rpc('join_group',{code:$('j-code').value});if(r.error)throw r.error;toast('Вы в группе!');U.tab='home';await loadStudent();render();return}
+ if(f.id==='f-group'){const r=await sb.from('groups').insert({name:$('g-name').value.trim(),teacher_id:D.user.id}).select().single();if(r.error)throw r.error;D.group=r.data;toast('Группа создана');await loadTeacher();render();return}
+ if(f.id==='f-asg'){const ch=$('a-c').value;const r=await sb.from('assignments').insert({group_id:D.group.id,title:$('a-t').value.trim(),type:$('a-y').value,question_count:+$('a-n').value,chapter_id:ch?+ch:null,due_date:$('a-d').value||null});if(r.error)throw r.error;toast('Задание отправлено группе');await loadTeacher();render();return}
+ if(f.id==='f-ch'){const c=D.chapters.find(x=>x.id===U.matCh);const upd={book:+$('c-b').value||1,number:+$('c-n').value||1,title:$('c-t').value.trim()||'Без названия',title_ar:$('c-ta').value.trim()||null,grammar:$('c-g').value.trim()||null};
+  const r=await sb.from('chapters').update(upd).eq('id',c.id);if(r.error)throw r.error;Object.assign(c,upd);D.chapters.sort((a,b)=>a.book-b.book||a.number-b.number);toast('Глава сохранена');render();return}
+ if(f.dataset.sub){const v=f.querySelector('input').value.trim()||null;const r=await sb.from('submissions').update({teacher_comment:v}).eq('id',f.dataset.sub);if(r.error)throw r.error;const s=D.subs.find(s=>s.id===f.dataset.sub);if(s)s.teacher_comment=v;toast('Комментарий сохранён');return}
+ }catch(err){const m=AUTHERR[err?.message];if(f.id==='f-auth'||f.id==='f-newpass'){U.authErr=m||err.message;render()}else fail(err)}
+ finally{if(btn&&document.contains(btn))btn.disabled=false}});
+
+/* ===== сессия ===== */
+sb.auth.onAuthStateChange((ev,session)=>{
+ if(ev==='PASSWORD_RECOVERY'){D.user=session?.user||null;U.recovery=true;render();return}
+ const prev=D.user?.id;D.user=session?.user||null;
+ if(!D.user){D.me=null;D.group=null;U.tab='home';render();return}
+ if(prev!==D.user.id&&!U.recovery){D.me=null;render();setTimeout(boot,0)}});
+try{speechSynthesis.getVoices()}catch(e){}
+}
+</script></body></html>
