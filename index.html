@@ -245,7 +245,7 @@ async function loadTeacher(){
  {const q=await sb.from('grammar_questions').select('*').order('chapter_id').order('sort').order('id');D.gq=q.error?[]:q.data}
  D.gdl=[];D.gtl=[];D.exams=[];D.att=[];
  if(!D.groups.length){D.group=null;D.members=[];D.asg=[];D.subs=[];D.gprog=[];D.gdl=[];D.gtl=[];D.exams=[];D.att=[];return}
- if(!D.group||!D.groups.find(x=>x.id===D.group.id))D.group=D.groups[0];else D.group=D.groups.find(x=>x.id===D.group.id);
+ {const vg=visGroups(),cur=D.group&&D.groups.find(x=>x.id===D.group.id);if(cur&&(!vg.length||vg.find(x=>x.id===cur.id)))D.group=cur;else D.group=vg[0]||D.groups[0]}
  const gid=D.group.id;
  const [mem,asg]=await Promise.all([sb.from('group_members').select('student_id,joined_at').eq('group_id',gid),sb.from('assignments').select('*').eq('group_id',gid).order('created_at',{ascending:false})]);
  if(mem.error)throw mem.error;if(asg.error)throw asg.error;D.asg=asg.data;
@@ -380,16 +380,18 @@ hw(){return `<h1>Домашние задания</h1><p class="mut">Резуль
  return `<div class="item"><div class="grow"><b>${esc(a.title)}</b><div class="small mut">${TYPES[a.type]} · ${a.question_count} вопр. · ${esc(chName(a.chapter_id))} · до ${fmt(a.due_date)}</div>${s?.teacher_comment?`<div style="margin-top:6px"><span class="tag">Учитель</span> ${esc(s.teacher_comment)}</div>`:''}</div>${s?`<span class="tag ok">${s.score}%</span>`:`${late?'<span class="tag late">просрочено</span>':''}<button class="btn" data-act="hw" data-id="${a.id}">Начать</button>`}</div>`}).join(''):'<p class="mut">Заданий пока нет.</p>'}</div>`},
 
 /* ----- учитель ----- */
-group(){if(!D.groups.length)return `${D.garch.length?`<h1>Активных групп нет</h1><div class="list">${D.garch.map(x=>`<div class="item"><div class="grow"><b>${esc(x.name)}</b> <span class="mut small">в архиве</span></div><button class="btn sm alt" data-act="z_gunarch" data-id="${x.id}">Вернуть</button></div>`).join('')}</div><h2>Новая группа</h2>`:'<h1>Создайте первую группу</h1>'}<p class="mut">Ученики вступят в неё по коду приглашения.</p><form class="form card" id="f-group" style="margin-top:14px"><div><label for="g-name">Название группы</label><input type="text" id="g-name" required placeholder="Например: Арабский, том 1, вечерняя"></div><button class="btn">Создать группу</button></form>`;
+group(){const vis=visGroups();
+ if(D.groups.length&&!vis.length)return `${secChips()}<h1>${SEC[U.sec]}</h1><p class="mut">В этом классе пока нет групп. Создайте первую.</p><form class="form card" id="f-group" style="margin-top:14px"><div><label for="g-name">Название группы</label><input type="text" id="g-name" required placeholder="Например: Арабский, том 1"></div><button class="btn">Создать группу</button></form>`;
+ if(!D.groups.length)return `${secChips()}${D.garch.length?`<h1>Активных групп нет</h1><div class="list">${D.garch.map(x=>`<div class="item"><div class="grow"><b>${esc(x.name)}</b> <span class="mut small">в архиве</span></div><button class="btn sm alt" data-act="z_gunarch" data-id="${x.id}">Вернуть</button></div>`).join('')}</div><h2>Новая группа</h2>`:'<h1>Создайте первую группу</h1>'}<p class="mut">Ученики вступят в неё по коду приглашения.</p><form class="form card" id="f-group" style="margin-top:14px"><div><label for="g-name">Название группы</label><input type="text" id="g-name" required placeholder="Например: Арабский, том 1, вечерняя"></div><button class="btn">Создать группу</button></form>`;
  const g=D.group,last=D.asg.slice(0,3);
  const rows=D.members.slice().sort((a,b)=>b.xp-a.xp);
- return `<div class="row" style="justify-content:space-between"><div><h1>${esc(g.name)}</h1><p class="mut" style="margin:0">${rows.length} учеников</p></div>
- ${D.groups.length>1?`<select id="g-sel" aria-label="Группа" style="width:auto">${D.groups.map(x=>`<option value="${x.id}" ${x.id===g.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select>`:''}</div>
+ return `${secChips()}<div class="row" style="justify-content:space-between"><div><h1>${esc(g.name)}</h1><p class="mut" style="margin:0">${rows.length} учеников</p></div>
+ ${vis.length>1?`<select id="g-sel" aria-label="Группа" style="width:auto">${vis.map(x=>`<option value="${x.id}" ${x.id===g.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select>`:''}</div>
  <div class="grid" style="margin:16px 0"><div class="card"><div class="mut small">Код приглашения — продиктуйте или отправьте ученикам</div><div class="code">${esc(g.invite_code)}</div><button class="btn sm alt" data-act="copy" data-v="${esc(g.invite_code)}">Скопировать приглашение</button></div>
  <div class="card"><div class="mut small">Занимались сегодня</div><div style="font-size:34px;font-weight:800">${rows.filter(r=>r.last_active===today()).length} из ${rows.length}</div><div class="small mut">${rows.filter(r=>!r.last_active||r.last_active<new Date(Date.now()-2*864e5).toISOString().slice(0,10)).length} не заходили 3+ дня</div></div></div>
  ${rows.length?`<div class="scroll"><table><thead><tr><th>Ученик</th><th class="n">Очки</th><th class="n hide-s">Серия</th><th class="n hide-s">Был(а)</th>${last.map(a=>`<th class="n" title="${esc(a.title)}">${esc(a.title.slice(0,14))}${a.title.length>14?'…':''}</th>`).join('')}<th></th></tr></thead><tbody>
- ${rows.map(r=>`<tr><td>${esc(r.full_name)}</td><td class="n">${r.xp}</td><td class="n hide-s">${r.streak}</td><td class="n hide-s">${r.last_active?fmt(r.last_active):'—'}</td>${last.map(a=>{const s=D.subs.find(s=>s.assignment_id===a.id&&s.student_id===r.id);return `<td class="n">${s?s.score+'%':'<span class="tag late">нет</span>'}</td>`}).join('')}<td style="white-space:nowrap">${D.groups.length>1?`<select data-mv="${r.id}" aria-label="Перевести ученика" style="width:auto;max-width:130px"><option value="">Перевести…</option>${D.groups.filter(x=>x.id!==g.id).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select> `:''}<button class="btn sm del" data-act="z_kick" data-id="${r.id}">Убрать</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="mut">Пока никто не вступил. Отправьте ученикам ссылку на приложение и код.</p>'}
-<h2>Управление группой</h2><div class="card form"><div><label for="g-book">Текущий том группы</label><select id="g-book" style="width:auto">${[1,2,3,4].map(b=>`<option value="${b}" ${b===(g.current_book||1)?'selected':''}>Том ${b}</option>`).join('')}</select><p class="small mut" style="margin:6px 0 0">С этого тома ученики получают новые слова в «Норме дня» и рекомендацию урока. Повторение идёт по всем изученным томам, все уроки остаются открытыми.</p></div><form class="row" id="f-gren"><input type="text" id="g-ren" required value="${esc(g.name)}" maxlength="80" style="max-width:320px" aria-label="Название группы"><button class="btn alt">Переименовать</button></form>
+ ${rows.map(r=>`<tr><td>${esc(r.full_name)}</td><td class="n">${r.xp}</td><td class="n hide-s">${r.streak}</td><td class="n hide-s">${r.last_active?fmt(r.last_active):'—'}</td>${last.map(a=>{const s=D.subs.find(s=>s.assignment_id===a.id&&s.student_id===r.id);return `<td class="n">${s?s.score+'%':'<span class="tag late">нет</span>'}</td>`}).join('')}<td style="white-space:nowrap">${D.groups.length>1?`<select data-mv="${r.id}" aria-label="Перевести ученика" style="width:auto;max-width:130px"><option value="">Перевести…</option>${D.groups.filter(x=>x.id!==g.id).map(x=>`<option value="${x.id}">${esc(x.name)}${x.section?' · '+SEC[x.section]:''}</option>`).join('')}</select> `:''}<button class="btn sm del" data-act="z_kick" data-id="${r.id}">Убрать</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="mut">Пока никто не вступил. Отправьте ученикам ссылку на приложение и код.</p>'}
+<h2>Управление группой</h2><div class="card form"><div><label for="g-sec">Класс</label><select id="g-sec" style="width:auto"><option value="" ${!g.section?'selected':''}>Без класса</option><option value="male" ${g.section==='male'?'selected':''}>${SEC.male}</option><option value="female" ${g.section==='female'?'selected':''}>${SEC.female}</option></select></div><div><label for="g-book">Текущий том группы</label><select id="g-book" style="width:auto">${[1,2,3,4].map(b=>`<option value="${b}" ${b===(g.current_book||1)?'selected':''}>Том ${b}</option>`).join('')}</select><p class="small mut" style="margin:6px 0 0">С этого тома ученики получают новые слова в «Норме дня» и рекомендацию урока. Повторение идёт по всем изученным томам, все уроки остаются открытыми.</p></div><form class="row" id="f-gren"><input type="text" id="g-ren" required value="${esc(g.name)}" maxlength="80" style="max-width:320px" aria-label="Название группы"><button class="btn alt">Переименовать</button></form>
  <div class="row" style="margin-top:12px"><button class="btn alt" data-act="z_garch">Архивировать</button><button class="btn del" data-act="z_gdel">Удалить группу</button></div>
  <p class="small mut" style="margin:8px 0 0"><b>Архив:</b> группа скрывается у вас и у учеников, но задания, экзамены и результаты сохраняются; её можно вернуть. <b>Удаление:</b> навсегда стираются задания, экзамены и результаты, ученики выходят из группы (их личный прогресс по словам остаётся).</p></div>
  ${D.garch.length?`<h2>Архив групп</h2><div class="list">${D.garch.map(x=>`<div class="item"><div class="grow"><b>${esc(x.name)}</b></div><button class="btn sm alt" data-act="z_gunarch" data-id="${x.id}">Вернуть</button></div>`).join('')}</div>`:''}
@@ -543,6 +545,9 @@ const dayRow=()=>(D.dlog||[]).find(r=>r.day===today())||null;
 const byIds=ids=>ids.map(id=>D.words.find(w=>w.id===id)).filter(Boolean);
 const wkey=w=>w.ar+'|'+w.ru;
 const taken=id=>{const p=D.prog.get(id);return !!p&&(p.stage>0||p.known)};
+const SEC={male:'Мужской класс',female:'Женский класс'};
+const visGroups=()=>!U.sec||U.sec==='all'?D.groups:D.groups.filter(x=>x.section===U.sec);
+const secChips=()=>`<div class="row" style="gap:8px;margin:0 0 14px;flex-wrap:wrap">${[['all','Все'],['male',SEC.male],['female',SEC.female]].map(([k,l])=>`<button class="chip ${(U.sec||'all')===k?'on':''}" data-act="z_sec" data-id="${k}" aria-pressed="${(U.sec||'all')===k}">${l}</button>`).join('')}</div>`;
 const curBook=()=>D.group?.current_book||1;
 function scopedProg(){const b=curBook(),cb=new Map(D.chapters.map(c=>[c.id,c.book])),wb=new Map(D.words.map(w=>[w.id,cb.get(w.chapter_id)]));return (D.gprogAll||[]).filter(p=>(wb.get(p.word_id)||1)>=b)}
 const chaptersFrom=()=>{const b=curBook();return [...D.chapters.filter(c=>c.book>=b),...D.chapters.filter(c=>c.book<b)]};
@@ -871,6 +876,7 @@ async function quickDone(q){const n=q.list.length,sc=Math.round(q.ok/n*100),bad=
  ${bad.length?`<h2>Повторить</h2><div class="list">${bad.map(x=>`<div class="item"><button class="play" data-say="w:${x.w.id}">${PLAY}</button><span class="grow">${esc(x.w.ru)}</span><span class="ar wrd">${A(x.w.ar)}</span></div>`).join('')}</div>`:''}
  <div class="fb"><button class="btn" style="width:100%" data-act="close">Готово</button></div></div>`}
 async function zGroupAct(a,d,t){
+ if(a==='z_sec'){U.sec=d.id;U.openAsg=null;U.openEx=null;await loadTeacher();render();return}
  if(a==='z_kick'){const m=D.members.find(x=>x.id===d.id);if(t.dataset.sure!=='1'){t.dataset.sure='1';t.textContent='Точно убрать?';return}
   const r=await sb.from('group_members').delete().eq('group_id',D.group.id).eq('student_id',d.id);if(r.error)throw r.error;toast((m?m.full_name:'Ученик')+' убран из группы');await loadTeacher();render();return}
 
@@ -881,7 +887,7 @@ async function zGroupAct(a,d,t){
   if(nm===null)return;if(nm.trim()!==D.group.name.trim()){toast('Название не совпало, группа не удалена');return}
   const r=await sb.from('groups').delete().eq('id',D.group.id);if(r.error)throw r.error;D.group=null;U.openAsg=null;U.openEx=null;toast('Группа удалена');await loadTeacher();render()}}
 async function zAct(a,d,t){
- if(a==='z_garch'||a==='z_gunarch'||a==='z_gdel'||a==='z_kick'){await zGroupAct(a,d,t);return}
+ if(a==='z_garch'||a==='z_gunarch'||a==='z_gdel'||a==='z_kick'||a==='z_sec'){await zGroupAct(a,d,t);return}
  if(a==='z_quick'){startQuick();return}
  if(a==='z_rate'){const q=Q.list[Q.at];if(q&&!q.rq&&Q.rt)Q.rt.set(q.w.id,+d.r);await qNext()}
  else if(a==='z_train')startTraining();
@@ -971,6 +977,7 @@ document.addEventListener('change',async e=>{const t=e.target;try{
  else if(t.dataset.mv!==undefined&&t.tagName==='SELECT'){if(!t.value)return;const m=D.members.find(x=>x.id===t.dataset.mv),to=D.groups.find(x=>x.id===t.value);if(!m||!to)return;
   if(!confirm('Перевести «'+m.full_name+'» в группу «'+to.name+'»?\nЗадания и результаты этой группы останутся здесь, очки и выученные слова сохранятся.')){t.value='';return}
   const r=await sb.rpc('move_student',{p_student:m.id,p_to:to.id});if(r.error)throw r.error;toast(m.full_name+' переведён(а) в «'+to.name+'»');await loadTeacher();render()}
+ else if(t.id==='g-sec'){const v=t.value||null;const r=await sb.from('groups').update({section:v}).eq('id',D.group.id);if(r.error)throw r.error;D.group.section=v;toast(v?'Группа перенесена: '+SEC[v]:'Класс снят');await loadTeacher();render()}
  else if(t.id==='g-book'){const b=+t.value;const r=await sb.from('groups').update({current_book:b}).eq('id',D.group.id);if(r.error)throw r.error;D.group.current_book=b;D._ord=null;D.gprog=scopedProg();toast('Текущий том: '+b);render()}
  else if(t.id==='g-sel'){D.group=D.groups.find(g=>g.id===t.value);U.openAsg=null;await loadTeacher();render()}
  else if(t.id==='m-ch'){U.matCh=+t.value;render()}
@@ -989,7 +996,7 @@ document.addEventListener('submit',async e=>{const f=e.target;e.preventDefault()
  if(f.id==='f-exam'){await zExamCreate(f);return}
  if(f.id==='f-join'){const r=await sb.rpc('join_group',{code:$('j-code').value});if(r.error)throw r.error;toast('Вы в группе!');U.tab='home';await loadStudent();render();return}
  if(f.id==='f-gren'){const nm=$('g-ren').value.trim();if(!nm){toast('Введите название');return}const r=await sb.from('groups').update({name:nm}).eq('id',D.group.id);if(r.error)throw r.error;D.group.name=nm;toast('Название изменено');await loadTeacher();render();return}
- if(f.id==='f-group'){const r=await sb.from('groups').insert({name:$('g-name').value.trim(),teacher_id:D.user.id}).select().single();if(r.error)throw r.error;D.group=r.data;toast('Группа создана');await loadTeacher();render();return}
+ if(f.id==='f-group'){const r=await sb.from('groups').insert({name:$('g-name').value.trim(),teacher_id:D.user.id,section:U.sec==='male'||U.sec==='female'?U.sec:null}).select().single();if(r.error)throw r.error;D.group=r.data;toast('Группа создана');await loadTeacher();render();return}
  if(f.id==='f-asg'){const ch=$('a-c').value;const r=await sb.from('assignments').insert({group_id:D.group.id,title:$('a-t').value.trim(),type:$('a-y').value,question_count:+$('a-n').value,chapter_id:ch?+ch:null,due_date:$('a-d').value||null});if(r.error)throw r.error;toast('Задание отправлено группе');await loadTeacher();render();return}
  if(f.id==='f-ch'){const c=D.chapters.find(x=>x.id===U.matCh);const upd={book:+$('c-b').value||1,number:+$('c-n').value||1,title:$('c-t').value.trim()||'Без названия',title_ar:$('c-ta').value.trim()||null,grammar:$('c-g').value.trim()||null};
   const r=await sb.from('chapters').update(upd).eq('id',c.id);if(r.error)throw r.error;Object.assign(c,upd);D.chapters.sort((a,b)=>a.book-b.book||a.number-b.number);toast('Глава сохранена');render();return}
