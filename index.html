@@ -233,6 +233,7 @@ async function loadStudent(){
  for(const r of [g,mem,asg,subs,prog])if(r.error)throw r.error;
  if(g.data.archived_at){D.group=null;return}
  D.group=g.data;D.asg=asg.data;D.subs=subs.data;D.prog=new Map(prog.data.map(p=>[p.word_id,p]));
+ if(!U._chInit){const c0=D.chapters.find(x=>x.book===curBook());if(c0)U.ch=c0.id;U._chInit=true}
  const ids=mem.data.map(x=>x.student_id);const p=await sb.from('profiles').select('id,full_name,xp,streak,last_active').in('id',ids);if(p.error)throw p.error;D.members=p.data;
  try{const dl=await sb.from('daily_log').select('*').eq('student_id',D.user.id).gte('day',dstr(14));D.dlog=dl.error?[]:dl.data}catch(e){D.dlog=[]}
  await loadV2(gid)}
@@ -322,7 +323,7 @@ lessons(){if(U.lessonOpen)return V.lesson();
  const ico='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 8l10 5 10-5-10-5Z"/><path d="m2 13 10 5 10-5"/></svg>';
  const ul=n=>{const a=n%10,b=n%100;return a===1&&b!==11?'урок':a>=2&&a<=4&&(b<12||b>14)?'урока':'уроков'};
  if(!U.book||!books.includes(U.book))return `<h1>Выберите том</h1><div class="vols">${books.map(b=>{const cs=D.chapters.filter(c=>c.book===b),ws=D.words.filter(w=>cs.some(c=>c.id===w.chapter_id)),k=isT()?0:ws.filter(w=>D.prog.get(w.id)?.known).length,pc=ws.length?Math.round(k*100/ws.length):0;
-  return `<button class="vol" data-act="book" data-id="${b}" aria-label="Том ${b}, ${cs.length} ${ul(cs.length)}"><img src="img/t${b}.jpg" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span class="vt">Том ${b}</span><span class="vn">${ico}${cs.length} ${ul(cs.length)}</span>${isT()?'':`<span class="vbar" title="Изучено ${pc}% слов"><i style="width:${pc}%"></i></span>`}</button>`}).join('')}</div>`;
+  return `<button class="vol" data-act="book" data-id="${b}" aria-label="Том ${b}, ${cs.length} ${ul(cs.length)}"><img src="img/t${b}.jpg" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span class="vt">Том ${b}${!isT()&&b===curBook()&&books.length>1?' · текущий':''}</span><span class="vn">${ico}${cs.length} ${ul(cs.length)}</span>${isT()?'':`<span class="vbar" title="Изучено ${pc}% слов"><i style="width:${pc}%"></i></span>`}</button>`}).join('')}</div>`;
  const b=U.book,rcid=isT()?0:(recommend()?.c.id||0);
  return `<button class="chip" data-act="books">← Все тома</button><h1 style="margin-top:14px">Том ${b}</h1><div class="chap" style="margin-top:12px">${D.chapters.filter(c=>c.book===b).map(c=>{const n=chWords(c.id).length,k=chWords(c.id).filter(w=>D.prog.get(w.id)?.known).length;return `<button class="ch ${c.id===U.ch?'cur':''}" data-act="open" data-id="${c.id}"><b>${c.number}</b><span class="small">${esc(c.title)}</span><br><span class="small" style="opacity:.8">${isT()?n+' слов':k+' из '+n+' слов'}</span>${rcid===c.id?'<br><span class="small">★ рекомендуем</span>':''}</button>`}).join('')}</div>`},
 
@@ -388,7 +389,7 @@ group(){if(!D.groups.length)return `${D.garch.length?`<h1>Активных гр�
  <div class="card"><div class="mut small">Занимались сегодня</div><div style="font-size:34px;font-weight:800">${rows.filter(r=>r.last_active===today()).length} из ${rows.length}</div><div class="small mut">${rows.filter(r=>!r.last_active||r.last_active<new Date(Date.now()-2*864e5).toISOString().slice(0,10)).length} не заходили 3+ дня</div></div></div>
  ${rows.length?`<div class="scroll"><table><thead><tr><th>Ученик</th><th class="n">Очки</th><th class="n hide-s">Серия</th><th class="n hide-s">Был(а)</th>${last.map(a=>`<th class="n" title="${esc(a.title)}">${esc(a.title.slice(0,14))}${a.title.length>14?'…':''}</th>`).join('')}</tr></thead><tbody>
  ${rows.map(r=>`<tr><td>${esc(r.full_name)}</td><td class="n">${r.xp}</td><td class="n hide-s">${r.streak}</td><td class="n hide-s">${r.last_active?fmt(r.last_active):'—'}</td>${last.map(a=>{const s=D.subs.find(s=>s.assignment_id===a.id&&s.student_id===r.id);return `<td class="n">${s?s.score+'%':'<span class="tag late">нет</span>'}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>`:'<p class="mut">Пока никто не вступил. Отправьте ученикам ссылку на приложение и код.</p>'}
-<h2>Управление группой</h2><div class="card form"><form class="row" id="f-gren"><input type="text" id="g-ren" required value="${esc(g.name)}" maxlength="80" style="max-width:320px" aria-label="Название группы"><button class="btn alt">Переименовать</button></form>
+<h2>Управление группой</h2><div class="card form"><div><label for="g-book">Текущий том группы</label><select id="g-book" style="width:auto">${[1,2,3,4].map(b=>`<option value="${b}" ${b===(g.current_book||1)?'selected':''}>Том ${b}</option>`).join('')}</select><p class="small mut" style="margin:6px 0 0">С этого тома ученики получают новые слова в «Норме дня» и рекомендацию урока. Повторение идёт по всем изученным томам, все уроки остаются открытыми.</p></div><form class="row" id="f-gren"><input type="text" id="g-ren" required value="${esc(g.name)}" maxlength="80" style="max-width:320px" aria-label="Название группы"><button class="btn alt">Переименовать</button></form>
  <div class="row" style="margin-top:12px"><button class="btn alt" data-act="z_garch">Архивировать</button><button class="btn del" data-act="z_gdel">Удалить группу</button></div>
  <p class="small mut" style="margin:8px 0 0"><b>Архив:</b> группа скрывается у вас и у учеников, но задания, экзамены и результаты сохраняются; её можно вернуть. <b>Удаление:</b> навсегда стираются задания, экзамены и результаты, ученики выходят из группы (их личный прогресс по словам остаётся).</p></div>
  ${D.garch.length?`<h2>Архив групп</h2><div class="list">${D.garch.map(x=>`<div class="item"><div class="grow"><b>${esc(x.name)}</b></div><button class="btn sm alt" data-act="z_gunarch" data-id="${x.id}">Вернуть</button></div>`).join('')}</div>`:''}
@@ -542,7 +543,9 @@ const dayRow=()=>(D.dlog||[]).find(r=>r.day===today())||null;
 const byIds=ids=>ids.map(id=>D.words.find(w=>w.id===id)).filter(Boolean);
 const wkey=w=>w.ar+'|'+w.ru;
 const taken=id=>{const p=D.prog.get(id);return !!p&&(p.stage>0||p.known)};
-function ordered(){if(D._ord&&D._ordN===D.words.length)return D._ord;const r=[];for(const c of D.chapters)r.push(...chWords(c.id));D._ord=r.filter(w=>w.ar&&w.ar!=='—');D._ordN=D.words.length;return D._ord}
+const curBook=()=>D.group?.current_book||1;
+const chaptersFrom=()=>{const b=curBook();return [...D.chapters.filter(c=>c.book>=b),...D.chapters.filter(c=>c.book<b)]};
+function ordered(){const b=curBook();if(D._ord&&D._ordN===D.words.length&&D._ordB===b)return D._ord;const r=[];for(const c of chaptersFrom())r.push(...chWords(c.id));D._ord=r.filter(w=>w.ar&&w.ar!=='—');D._ordN=D.words.length;D._ordB=b;return D._ord}
 function takenKeys(){const s=new Set();for(const w of D.words)if(taken(w.id))s.add(wkey(w));return s}
 function pickNew(n,skip){const ex=new Set(skip||[]),tk=takenKeys(),out=[];for(const w of ordered()){if(out.length>=n)break;if(ex.has(w.id)||taken(w.id))continue;const k=wkey(w);if(tk.has(k))continue;tk.add(k);out.push(w)}return out}
 function remaining(){const tk=takenKeys(),s=new Set();for(const w of ordered())if(!taken(w.id)&&!tk.has(wkey(w)))s.add(wkey(w));return s.size}
@@ -665,7 +668,7 @@ let ZRETRY=null;
 const unitWords=(chId,les)=>les?chWords(chId).filter(w=>LN(w)===les):chWords(chId);
 function unitPct(chId,les){if(!D.prog)return null;const ws=unitWords(chId,les);if(!ws.length)return null;const k=ws.filter(w=>{const p=D.prog.get(w.id);return p&&(p.stage>=2||p.known)}).length;return Math.round(k*100/ws.length)}
 function recommend(){if(isT()||!D.prog)return null;
- for(const c of D.chapters){const ws=chWords(c.id);if(!ws.length)continue;const nums=[...new Set(ws.map(LN))].sort((a,b)=>a-b);
+ for(const c of chaptersFrom()){const ws=chWords(c.id);if(!ws.length)continue;const nums=[...new Set(ws.map(LN))].sort((a,b)=>a-b);
   for(const n of nums){const pct=unitPct(c.id,n);if(pct<80)return {c,les:n,pct}}}return null}
 function recCard(ch){const r=recommend();
  if(r)return `<div class="card"><span class="tag">Рекомендуем</span><h3 style="margin-top:8px">Том ${r.c.book} · Глава ${r.c.number} · ${ORU[r.les]||('Урок '+r.les)}</h3><p class="mut small" style="margin:0 0 12px">${esc(r.c.title)} · освоено ${r.pct}% слов урока. Это совет, а не запрет: можно открыть любой урок.</p><button class="btn" data-act="open" data-id="${r.c.id}">Открыть урок</button></div>`;
@@ -961,6 +964,7 @@ document.addEventListener('keydown',e=>{if(e.target.id==='fc'&&(e.key==='Enter'|
 document.addEventListener('input',e=>{if(e.target.id==='q'){U.q=e.target.value;const pos=e.target.selectionStart;render();const q=$('q');q.focus();q.setSelectionRange(pos,pos)}});
 document.addEventListener('change',async e=>{const t=e.target;try{
  if(t.dataset.bookall){document.querySelectorAll(`input[name=ex-ch][data-b="${t.dataset.bookall}"]`).forEach(i=>i.checked=t.checked)}
+ else if(t.id==='g-book'){const b=+t.value;const r=await sb.from('groups').update({current_book:b}).eq('id',D.group.id);if(r.error)throw r.error;D.group.current_book=b;D._ord=null;toast('Текущий том: '+b);render()}
  else if(t.id==='g-sel'){D.group=D.groups.find(g=>g.id===t.value);U.openAsg=null;await loadTeacher();render()}
  else if(t.id==='m-ch'){U.matCh=+t.value;render()}
  else if(t.dataset.up&&t.files[0])await uploadAudio(t.dataset.up,t.files[0]);
