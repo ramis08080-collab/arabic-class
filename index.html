@@ -231,6 +231,7 @@ async function loadStudent(){
  const gid=m.data[0].group_id;
  const [g,mem,asg,subs,prog]=await Promise.all([sb.from('groups').select('*').eq('id',gid).single(),sb.from('group_members').select('student_id').eq('group_id',gid),sb.from('assignments').select('*').eq('group_id',gid).order('due_date'),sb.from('submissions').select('*').eq('student_id',D.user.id),sb.from('word_progress').select('*').eq('student_id',D.user.id)]);
  for(const r of [g,mem,asg,subs,prog])if(r.error)throw r.error;
+ if(g.data.archived_at){D.group=null;return}
  D.group=g.data;D.asg=asg.data;D.subs=subs.data;D.prog=new Map(prog.data.map(p=>[p.word_id,p]));
  const ids=mem.data.map(x=>x.student_id);const p=await sb.from('profiles').select('id,full_name,xp,streak,last_active').in('id',ids);if(p.error)throw p.error;D.members=p.data;
  try{const dl=await sb.from('daily_log').select('*').eq('student_id',D.user.id).gte('day',dstr(14));D.dlog=dl.error?[]:dl.data}catch(e){D.dlog=[]}
@@ -239,10 +240,10 @@ async function loadV2(gid){const uid=D.user.id;D.marks=new Map();D.tlog=[];D.exa
  try{const [lm,tl,ex,st]=await Promise.all([sb.from('lesson_marks').select('*').eq('student_id',uid),sb.from('training_log').select('*').eq('student_id',uid).gte('day',dstr(14)),sb.from('exams').select('*').eq('group_id',gid).order('opens_at',{ascending:false}),sb.rpc('exam_my_status')]);
   if(!lm.error)D.marks=new Map(lm.data.map(m=>[m.chapter_id+':'+m.lesson,m]));if(!tl.error)D.tlog=tl.data;if(!ex.error)D.exams=ex.data;if(!st.error)D.exst=new Map((st.data||[]).map(x=>[x.exam_id,x]))}catch(e){console.error(e)}}
 async function loadTeacher(){
- const g=await sb.from('groups').select('*').eq('teacher_id',D.user.id).order('created_at');if(g.error)throw g.error;D.groups=g.data;
+ const g=await sb.from('groups').select('*').eq('teacher_id',D.user.id).order('created_at');if(g.error)throw g.error;D.garch=g.data.filter(x=>x.archived_at);D.groups=g.data.filter(x=>!x.archived_at);
  {const q=await sb.from('grammar_questions').select('*').order('chapter_id').order('sort').order('id');D.gq=q.error?[]:q.data}
  D.gdl=[];D.gtl=[];D.exams=[];D.att=[];
- if(!D.groups.length){D.group=null;D.members=[];D.asg=[];D.subs=[];D.gprog=[];return}
+ if(!D.groups.length){D.group=null;D.members=[];D.asg=[];D.subs=[];D.gprog=[];D.gdl=[];D.gtl=[];D.exams=[];D.att=[];return}
  if(!D.group||!D.groups.find(x=>x.id===D.group.id))D.group=D.groups[0];else D.group=D.groups.find(x=>x.id===D.group.id);
  const gid=D.group.id;
  const [mem,asg]=await Promise.all([sb.from('group_members').select('student_id,joined_at').eq('group_id',gid),sb.from('assignments').select('*').eq('group_id',gid).order('created_at',{ascending:false})]);
@@ -378,7 +379,7 @@ hw(){return `<h1>Домашние задания</h1><p class="mut">Резуль
  return `<div class="item"><div class="grow"><b>${esc(a.title)}</b><div class="small mut">${TYPES[a.type]} · ${a.question_count} вопр. · ${esc(chName(a.chapter_id))} · до ${fmt(a.due_date)}</div>${s?.teacher_comment?`<div style="margin-top:6px"><span class="tag">Учитель</span> ${esc(s.teacher_comment)}</div>`:''}</div>${s?`<span class="tag ok">${s.score}%</span>`:`${late?'<span class="tag late">просрочено</span>':''}<button class="btn" data-act="hw" data-id="${a.id}">Начать</button>`}</div>`}).join(''):'<p class="mut">Заданий пока нет.</p>'}</div>`},
 
 /* ----- учитель ----- */
-group(){if(!D.groups.length)return `<h1>Создайте первую группу</h1><p class="mut">Ученики вступят в неё по коду приглашения.</p><form class="form card" id="f-group" style="margin-top:14px"><div><label for="g-name">Название группы</label><input type="text" id="g-name" required placeholder="Например: Арабский, том 1, вечерняя"></div><button class="btn">Создать группу</button></form>`;
+group(){if(!D.groups.length)return `${D.garch.length?`<h1>Активных групп нет</h1><div class="list">${D.garch.map(x=>`<div class="item"><div class="grow"><b>${esc(x.name)}</b> <span class="mut small">в архиве</span></div><button class="btn sm alt" data-act="z_gunarch" data-id="${x.id}">Вернуть</button></div>`).join('')}</div><h2>Новая группа</h2>`:'<h1>Создайте первую группу</h1>'}<p class="mut">Ученики вступят в неё по коду приглашения.</p><form class="form card" id="f-group" style="margin-top:14px"><div><label for="g-name">Название группы</label><input type="text" id="g-name" required placeholder="Например: Арабский, том 1, вечерняя"></div><button class="btn">Создать группу</button></form>`;
  const g=D.group,last=D.asg.slice(0,3);
  const rows=D.members.slice().sort((a,b)=>b.xp-a.xp);
  return `<div class="row" style="justify-content:space-between"><div><h1>${esc(g.name)}</h1><p class="mut" style="margin:0">${rows.length} учеников</p></div>
@@ -387,6 +388,10 @@ group(){if(!D.groups.length)return `<h1>Создайте первую групп
  <div class="card"><div class="mut small">Занимались сегодня</div><div style="font-size:34px;font-weight:800">${rows.filter(r=>r.last_active===today()).length} из ${rows.length}</div><div class="small mut">${rows.filter(r=>!r.last_active||r.last_active<new Date(Date.now()-2*864e5).toISOString().slice(0,10)).length} не заходили 3+ дня</div></div></div>
  ${rows.length?`<div class="scroll"><table><thead><tr><th>Ученик</th><th class="n">Очки</th><th class="n hide-s">Серия</th><th class="n hide-s">Был(а)</th>${last.map(a=>`<th class="n" title="${esc(a.title)}">${esc(a.title.slice(0,14))}${a.title.length>14?'…':''}</th>`).join('')}</tr></thead><tbody>
  ${rows.map(r=>`<tr><td>${esc(r.full_name)}</td><td class="n">${r.xp}</td><td class="n hide-s">${r.streak}</td><td class="n hide-s">${r.last_active?fmt(r.last_active):'—'}</td>${last.map(a=>{const s=D.subs.find(s=>s.assignment_id===a.id&&s.student_id===r.id);return `<td class="n">${s?s.score+'%':'<span class="tag late">нет</span>'}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>`:'<p class="mut">Пока никто не вступил. Отправьте ученикам ссылку на приложение и код.</p>'}
+<h2>Управление группой</h2><div class="card form"><form class="row" id="f-gren"><input type="text" id="g-ren" required value="${esc(g.name)}" maxlength="80" style="max-width:320px" aria-label="Название группы"><button class="btn alt">Переименовать</button></form>
+ <div class="row" style="margin-top:12px"><button class="btn alt" data-act="z_garch">Архивировать</button><button class="btn del" data-act="z_gdel">Удалить группу</button></div>
+ <p class="small mut" style="margin:8px 0 0"><b>Архив:</b> группа скрывается у вас и у учеников, но задания, экзамены и результаты сохраняются; её можно вернуть. <b>Удаление:</b> навсегда стираются задания, экзамены и результаты, ученики выходят из группы (их личный прогресс по словам остаётся).</p></div>
+ ${D.garch.length?`<h2>Архив групп</h2><div class="list">${D.garch.map(x=>`<div class="item"><div class="grow"><b>${esc(x.name)}</b></div><button class="btn sm alt" data-act="z_gunarch" data-id="${x.id}">Вернуть</button></div>`).join('')}</div>`:''}
  <h2>Новая группа</h2><form class="row" id="f-group"><input type="text" id="g-name" required placeholder="Название" style="max-width:320px"><button class="btn alt">Создать</button></form>`},
 
 asg(){if(!D.group)return V.group();
@@ -836,7 +841,15 @@ function normStats(){if(!D.group)return '';const t=today(),ms=D.members,dl=D.gdl
  ${ms.length?`<div class="scroll"><table><thead><tr><th>Ученик</th><th class="n" title="Слов в день">Уровень</th><th class="n">Неделя</th><th class="n hide-s">30 дней</th><th class="n hide-s" title="Дней подряд с выполненной нормой">Серия</th><th class="n" title="Слов, которые держатся 7 дней и дольше">Выучено</th><th class="n hide-s" title="Повторений просрочено">Долг</th><th class="n hide-s">Точность</th><th class="n hide-s" title="Тренировок дня за неделю">Трен.</th><th class="n hide-s">Последняя</th></tr></thead><tbody>${rows}</tbody></table></div><p class="mut small">Уровень: слов в день. Неделя: дней с выполненной нормой из 7. Выучено: слова, интервал которых 7 дней и больше. Долг: повторения, которые ученик пропустил.</p>`:'<p class="mut">В группе пока нет учеников.</p>'}`}
 
 /* --- команды z_* --- */
+async function zGroupAct(a,d,t){
+ if(a==='z_garch'){if(t.dataset.sure!=='1'){t.dataset.sure='1';t.textContent='Точно архивировать?';return}
+  const r=await sb.from('groups').update({archived_at:new Date().toISOString()}).eq('id',D.group.id);if(r.error)throw r.error;D.group=null;toast('Группа в архиве');await loadTeacher();render()}
+ else if(a==='z_gunarch'){const r=await sb.from('groups').update({archived_at:null}).eq('id',d.id);if(r.error)throw r.error;toast('Группа возвращена');await loadTeacher();render()}
+ else if(a==='z_gdel'){const nm=prompt('Удалить группу «'+D.group.name+'» навсегда?\nУдалятся задания, экзамены и результаты, ученики выйдут из группы.\n\nДля подтверждения введите название группы:');
+  if(nm===null)return;if(nm.trim()!==D.group.name.trim()){toast('Название не совпало, группа не удалена');return}
+  const r=await sb.from('groups').delete().eq('id',D.group.id);if(r.error)throw r.error;D.group=null;U.openAsg=null;U.openEx=null;toast('Группа удалена');await loadTeacher();render()}}
 async function zAct(a,d,t){
+ if(a==='z_garch'||a==='z_gunarch'||a==='z_gdel'){await zGroupAct(a,d,t);return}
  if(a==='z_rate'){const q=Q.list[Q.at];if(q&&!q.rq&&Q.rt)Q.rt.set(q.w.id,+d.r);await qNext()}
  else if(a==='z_train')startTraining();
  else if(a==='z_gold')startGold(+d.ch,+d.les||0);
@@ -938,6 +951,7 @@ document.addEventListener('submit',async e=>{const f=e.target;e.preventDefault()
  if(f.id==='f-newpass'){const r=await sb.auth.updateUser({password:$('np').value});if(r.error)throw r.error;U.recovery=false;toast('Пароль изменён');boot();return}
  if(f.id==='f-exam'){await zExamCreate(f);return}
  if(f.id==='f-join'){const r=await sb.rpc('join_group',{code:$('j-code').value});if(r.error)throw r.error;toast('Вы в группе!');U.tab='home';await loadStudent();render();return}
+ if(f.id==='f-gren'){const nm=$('g-ren').value.trim();if(!nm){toast('Введите название');return}const r=await sb.from('groups').update({name:nm}).eq('id',D.group.id);if(r.error)throw r.error;D.group.name=nm;toast('Название изменено');await loadTeacher();render();return}
  if(f.id==='f-group'){const r=await sb.from('groups').insert({name:$('g-name').value.trim(),teacher_id:D.user.id}).select().single();if(r.error)throw r.error;D.group=r.data;toast('Группа создана');await loadTeacher();render();return}
  if(f.id==='f-asg'){const ch=$('a-c').value;const r=await sb.from('assignments').insert({group_id:D.group.id,title:$('a-t').value.trim(),type:$('a-y').value,question_count:+$('a-n').value,chapter_id:ch?+ch:null,due_date:$('a-d').value||null});if(r.error)throw r.error;toast('Задание отправлено группе');await loadTeacher();render();return}
  if(f.id==='f-ch'){const c=D.chapters.find(x=>x.id===U.matCh);const upd={book:+$('c-b').value||1,number:+$('c-n').value||1,title:$('c-t').value.trim()||'Без названия',title_ar:$('c-ta').value.trim()||null,grammar:$('c-g').value.trim()||null};
