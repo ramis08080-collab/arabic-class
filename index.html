@@ -165,6 +165,12 @@ audio{width:100%;margin:6px 0}
 .lt .ar{font-size:24px;line-height:1.3}.lt .small{display:block}
 .li{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin:8px 0;padding:15px 18px;border:1px solid var(--line);border-radius:16px;background:var(--card);text-align:left;font-weight:700}
 .li:hover{border-color:var(--ind)}.li .ic{font-size:22px;flex:none}.li .sub{font-weight:400;color:var(--mut);font-size:14px;margin-left:8px}
+.rates{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.rt{border:2px solid var(--line);background:var(--card);border-radius:14px;min-height:52px;font-weight:700;font-size:16px;color:var(--ink)}
+.rt.h{border-color:var(--cor);color:var(--cor)}.rt.n{border-color:var(--ind);color:var(--ind)}.rt.e{border-color:var(--ok);color:var(--ok)}
+.opt.sel{border-color:var(--ind);background:color-mix(in srgb,var(--ind) 14%,var(--card))}
+.tag.gold{background:#ffe08a;color:#4a3300}
+.lstat{padding:0 16px 10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
 </style></head><body>
 <header><div class="bar"><div class="logo"><b class="ar">الْعَرَبِيَّةُ بَيْنَ يَدَيْكَ</b><span>Класс арабского</span></div><span class="who-me" id="me"></span><button class="btn alt sm" id="logout" hidden>Выйти</button></div><nav id="nav"></nav></header>
 <main id="app"><div class="loading">Загрузка…</div></main>
@@ -227,21 +233,33 @@ async function loadStudent(){
  for(const r of [g,mem,asg,subs,prog])if(r.error)throw r.error;
  D.group=g.data;D.asg=asg.data;D.subs=subs.data;D.prog=new Map(prog.data.map(p=>[p.word_id,p]));
  const ids=mem.data.map(x=>x.student_id);const p=await sb.from('profiles').select('id,full_name,xp,streak,last_active').in('id',ids);if(p.error)throw p.error;D.members=p.data;
- try{const dl=await sb.from('daily_log').select('*').eq('student_id',D.user.id).gte('day',dstr(14));D.dlog=dl.error?[]:dl.data}catch(e){D.dlog=[]}}
+ try{const dl=await sb.from('daily_log').select('*').eq('student_id',D.user.id).gte('day',dstr(14));D.dlog=dl.error?[]:dl.data}catch(e){D.dlog=[]}
+ await loadV2(gid)}
+async function loadV2(gid){const uid=D.user.id;D.marks=new Map();D.tlog=[];D.exams=[];D.exst=new Map();
+ try{const [lm,tl,ex,st]=await Promise.all([sb.from('lesson_marks').select('*').eq('student_id',uid),sb.from('training_log').select('*').eq('student_id',uid).gte('day',dstr(14)),sb.from('exams').select('*').eq('group_id',gid).order('opens_at',{ascending:false}),sb.rpc('exam_my_status')]);
+  if(!lm.error)D.marks=new Map(lm.data.map(m=>[m.chapter_id+':'+m.lesson,m]));if(!tl.error)D.tlog=tl.data;if(!ex.error)D.exams=ex.data;if(!st.error)D.exst=new Map((st.data||[]).map(x=>[x.exam_id,x]))}catch(e){console.error(e)}}
 async function loadTeacher(){
  const g=await sb.from('groups').select('*').eq('teacher_id',D.user.id).order('created_at');if(g.error)throw g.error;D.groups=g.data;
+ {const q=await sb.from('grammar_questions').select('*').order('chapter_id').order('sort').order('id');D.gq=q.error?[]:q.data}
+ D.gdl=[];D.gtl=[];D.exams=[];D.att=[];
  if(!D.groups.length){D.group=null;D.members=[];D.asg=[];D.subs=[];D.gprog=[];return}
  if(!D.group||!D.groups.find(x=>x.id===D.group.id))D.group=D.groups[0];else D.group=D.groups.find(x=>x.id===D.group.id);
  const gid=D.group.id;
  const [mem,asg]=await Promise.all([sb.from('group_members').select('student_id,joined_at').eq('group_id',gid),sb.from('assignments').select('*').eq('group_id',gid).order('created_at',{ascending:false})]);
  if(mem.error)throw mem.error;if(asg.error)throw asg.error;D.asg=asg.data;
  const ids=mem.data.map(x=>x.student_id);
- const [p,s,wp]=await Promise.all([ids.length?sb.from('profiles').select('id,full_name,xp,streak,last_active').in('id',ids):{data:[]},D.asg.length?sb.from('submissions').select('*').in('assignment_id',D.asg.map(a=>a.id)):{data:[]},ids.length?sb.from('word_progress').select('*').in('student_id',ids):{data:[]}]);
- for(const r of [p,s,wp])if(r.error)throw r.error;D.members=p.data;D.subs=s.data;D.gprog=wp.data}
+ const [p,s,wp]=await Promise.all([ids.length?sb.from('profiles').select('id,full_name,xp,streak,last_active,daily_goal').in('id',ids):{data:[]},D.asg.length?sb.from('submissions').select('*').in('assignment_id',D.asg.map(a=>a.id)):{data:[]},ids.length?sb.from('word_progress').select('*').in('student_id',ids):{data:[]}]);
+ for(const r of [p,s,wp])if(r.error)throw r.error;D.members=p.data;D.subs=s.data;D.gprog=wp.data;
+ await loadT2(ids,gid)}
+async function loadT2(ids,gid){D.gdl=[];D.gtl=[];D.exams=[];D.att=[];
+ try{const since=dstr(30);
+  const [dl,tl,ex]=await Promise.all([ids.length?sb.from('daily_log').select('student_id,day,goal,accuracy,completed_at').in('student_id',ids).gte('day',since):{data:[]},ids.length?sb.from('training_log').select('*').in('student_id',ids).gte('day',since):{data:[]},sb.from('exams').select('*').eq('group_id',gid).order('created_at',{ascending:false})]);
+  if(!dl.error)D.gdl=dl.data;if(!tl.error)D.gtl=tl.data;if(!ex.error)D.exams=ex.data;
+  if(D.exams.length){const at=await sb.from('exam_attempts').select('*').in('exam_id',D.exams.map(x=>x.id));if(!at.error)D.att=at.data}}catch(e){console.error(e)}}
 async function boot(){
  try{await loadContent();await loadMe();if(isT())await loadTeacher();else await loadStudent();
  $('me').textContent=D.me.full_name+(isT()?' · учитель':'');$('logout').hidden=false;
- if(isT()&&!['group','asg','mat','stats','lessons'].includes(U.tab))U.tab='group';
+ if(isT()&&!['group','asg','mat','stats','exam','lessons'].includes(U.tab))U.tab='group';
  render()}catch(e){fail(e);$('app').innerHTML='<div class="loading">Не удалось загрузить данные. Обновите страницу.</div>'}}
 
 /* ===== вход и регистрация ===== */
@@ -262,7 +280,7 @@ function authView(){$('nav').innerHTML='';$('me').textContent='';$('logout').hid
 const AUTHERR={'Invalid login credentials':'Неверная почта или пароль','User already registered':'Эта почта уже зарегистрирована','Email not confirmed':'Почта не подтверждена. Проверьте письмо'};
 
 /* ===== экраны ===== */
-const NAV={st:[['home','Главная'],['lessons','Уроки'],['words','Слова'],['hw','Задания']],te:[['group','Группа'],['asg','Задания'],['mat','Материал'],['stats','Статистика'],['lessons','Уроки']]};
+const NAV={st:[['home','Главная'],['lessons','Уроки'],['words','Слова'],['hw','Задания']],te:[['group','Группа'],['asg','Задания'],['mat','Материал'],['stats','Статистика'],['exam','Экзамен'],['lessons','Уроки']]};
 function nav(){$('nav').innerHTML=NAV[isT()?'te':'st'].map(([k,t])=>`<button data-tab="${k}" class="${U.tab===k?'on':''}">${t}</button>`).join('')}
 function render(){if(!D.user){$('app').innerHTML=authView();return}
  if(!D.me){$('app').innerHTML='<div class="loading">Загрузка…</div>';return}
@@ -284,13 +302,13 @@ home(){const me=D.me,p=pending()[0],xpIn=me.xp%200,dn=['Пн','Вт','Ср','Ч�
  const ws=W();const wd=ws.length?ws[new Date().getDate()%ws.length]:null;
  const board=D.members.slice().sort((a,b)=>b.xp-a.xp);const my=board.findIndex(b=>b.id===me.id);
  const ch=D.chapters.find(c=>c.id===U.ch)||D.chapters[0];
- return `${normCard()}<section class="cover"><div><div class="ar big">أَهْلًا وَسَهْلًا</div><p>${esc(me.full_name)}, рады вас видеть! Несколько минут в день — и слова запомнятся.</p>
+ return `${normCard()}${trainCard()}${examCard()}<section class="cover"><div><div class="ar big">أَهْلًا وَسَهْلًا</div><p>${esc(me.full_name)}, рады вас видеть! Несколько минут в день — и слова запомнятся.</p>
  <div class="stat"><div><b>${run}</b>дней подряд</div><div><b>${me.xp}</b>очков</div><div><b>${lvl()}</b>уровень</div></div>
  <div class="lvl"><i style="width:${xpIn/2}%"></i></div><p class="small">${200-xpIn} очков до уровня ${lvl()+1}</p></div>
  <div><div class="small" style="opacity:.85">Эта неделя</div><div class="week">${week.map((d,i)=>`<div class="day ${d||nd[i]?'d':''} ${i===ti?'t':''}">${dn[i]}${nd[i]?'✓':''}</div>`).join('')}</div>
  <button class="btn sun" style="width:100%;margin-top:16px" data-act="quiz" data-type="mix" data-n="8" ${ws.length?'':'disabled'}>Быстрая тренировка</button></div></section>
  <div class="grid" style="margin-top:14px">
- ${ch?`<div class="card"><span class="tag">Продолжить</span><h3 style="margin-top:8px">Том ${ch.book} · Глава ${ch.number}</h3><p class="mut small" style="margin:0 0 12px">${esc(ch.title)} · ${chWords(ch.id).length} слов</p><button class="btn" data-act="open" data-id="${ch.id}">Открыть урок</button></div>`:''}
+ ${recCard(ch)}
  <div class="card">${p?`<span class="tag late">Задание до ${fmt(p.due_date)}</span><h3 style="margin-top:8px">${esc(p.title)}</h3><p class="mut small" style="margin:0 0 12px">${TYPES[p.type]} · ${p.question_count} вопросов</p><button class="btn" data-act="hw" data-id="${p.id}">Выполнить</button>`:`<span class="tag ok">Все задания сданы</span><h3 style="margin-top:8px">Отлично!</h3><p class="mut small">Новые задания появятся здесь.</p>`}</div>
  ${wd?`<div class="card" style="text-align:center"><span class="tag">Слово дня</span><div class="ar" style="font-size:42px;margin:6px 0">${A(wd.ar)}</div><div class="mut">${esc(wd.ru)}</div><button class="play" style="margin:10px auto 0" data-say="w:${wd.id}" aria-label="Слушать">${PLAY}</button></div>`:''}
  </div>
@@ -304,8 +322,8 @@ lessons(){if(U.lessonOpen)return V.lesson();
  const ul=n=>{const a=n%10,b=n%100;return a===1&&b!==11?'урок':a>=2&&a<=4&&(b<12||b>14)?'урока':'уроков'};
  if(!U.book||!books.includes(U.book))return `<h1>Выберите том</h1><div class="vols">${books.map(b=>{const cs=D.chapters.filter(c=>c.book===b),ws=D.words.filter(w=>cs.some(c=>c.id===w.chapter_id)),k=isT()?0:ws.filter(w=>D.prog.get(w.id)?.known).length,pc=ws.length?Math.round(k*100/ws.length):0;
   return `<button class="vol" data-act="book" data-id="${b}" aria-label="Том ${b}, ${cs.length} ${ul(cs.length)}"><img src="img/t${b}.jpg" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span class="vt">Том ${b}</span><span class="vn">${ico}${cs.length} ${ul(cs.length)}</span>${isT()?'':`<span class="vbar" title="Изучено ${pc}% слов"><i style="width:${pc}%"></i></span>`}</button>`}).join('')}</div>`;
- const b=U.book;
- return `<button class="chip" data-act="books">← Все тома</button><h1 style="margin-top:14px">Том ${b}</h1><div class="chap" style="margin-top:12px">${D.chapters.filter(c=>c.book===b).map(c=>{const n=chWords(c.id).length,k=chWords(c.id).filter(w=>D.prog.get(w.id)?.known).length;return `<button class="ch ${c.id===U.ch?'cur':''}" data-act="open" data-id="${c.id}"><b>${c.number}</b><span class="small">${esc(c.title)}</span><br><span class="small" style="opacity:.8">${isT()?n+' слов':k+' из '+n+' слов'}</span></button>`}).join('')}</div>`},
+ const b=U.book,rcid=isT()?0:(recommend()?.c.id||0);
+ return `<button class="chip" data-act="books">← Все тома</button><h1 style="margin-top:14px">Том ${b}</h1><div class="chap" style="margin-top:12px">${D.chapters.filter(c=>c.book===b).map(c=>{const n=chWords(c.id).length,k=chWords(c.id).filter(w=>D.prog.get(w.id)?.known).length;return `<button class="ch ${c.id===U.ch?'cur':''}" data-act="open" data-id="${c.id}"><b>${c.number}</b><span class="small">${esc(c.title)}</span><br><span class="small" style="opacity:.8">${isT()?n+' слов':k+' из '+n+' слов'}</span>${rcid===c.id?'<br><span class="small">★ рекомендуем</span>':''}</button>`}).join('')}</div>`},
 
 lesson(){const c=D.chapters.find(x=>x.id===U.ch);if(!c){U.lessonOpen=false;return V.lessons()}
  if(U.part)return V.part(c);
@@ -316,12 +334,16 @@ lesson(){const c=D.chapters.find(x=>x.id===U.ch);if(!c){U.lessonOpen=false;retur
  ${nums.map(n=>{const lw=ws.filter(w=>LN(w)===n),ll=ls.filter(l=>LN(l)===n);const read=ll.some(l=>/Чтение|Текст/.test(l.section||''));
   const k=ll.find(l=>l.ru)?.ru;
   return `<div class="les"><div class="lh"><div class="lt"><span class="ar">${A(ORD[n]||('الدَّرْسُ '+ADIG(n)))}</span><span class="small mut">${ORU[n]||('Урок '+n)}</span></div><div class="ln">${ADIG(n)}</div></div>
+  ${lessonStat(c.id,n)}
   ${ll.length?`<button class="li" data-act="part" data-k="d" data-les="${n}"><span>${(()=>{const t=(ll[0].section||'').split('·').slice(1).join('·').trim();return t.includes(':')?esc(t):(read?'Текст':'Диалог')})()}<span class="sub">${ll.length} ${read?'предл.':'реплик'}</span></span><span class="ic">📖</span></button>`:''}
   ${lw.length?`<button class="li" data-act="part" data-k="w" data-les="${n}"><span>Словарь<span class="sub">${lw.length} слов</span></span><span class="ic">🔤</span></button>`:''}
-  ${(lw.length||ll.length)?`<button class="li" data-act="part" data-k="x" data-les="${n}"><span>Упражнения</span><span class="ic">🧩</span></button>`:''}</div>`}).join('')}
+  ${(lw.length||ll.length)?`<button class="li" data-act="part" data-k="x" data-les="${n}"><span>Упражнения</span><span class="ic">🧩</span></button>`:''}
+  ${goldBtn(c.id,n)}</div>`}).join('')}
  <div class="les"><div class="lh"><div class="lt"><span class="ar">${A('خُلاصَةُ الوَحْدَةِ')}</span><span class="small mut">Итог главы</span></div><div class="ln">★</div></div>
+ ${lessonStat(c.id,0)}
  ${c.grammar?`<button class="li" data-act="part" data-k="g"><span>Грамматика</span><span class="ic">📐</span></button>`:''}
- ${ws.length>=4?`<button class="li" data-act="part" data-k="x" data-les="0"><span>Упражнения по всей главе<span class="sub">${ws.length} слов</span></span><span class="ic">🏁</span></button>`:''}</div>`},
+ ${ws.length>=4?`<button class="li" data-act="part" data-k="x" data-les="0"><span>Упражнения по всей главе<span class="sub">${ws.length} слов</span></span><span class="ic">🏁</span></button>`:''}
+ ${goldBtn(c.id,0)}</div>`},
 
 part(c){const k=U.part.k,n=U.part.les;const ws=chWords(c.id).filter(w=>!n||LN(w)===n),ls=chLines(c.id).filter(l=>!n||LN(l)===n);
  const head=`<button class="chip" data-act="partback">← Глава ${c.number}</button>
@@ -404,15 +426,18 @@ mat(){const c=D.chapters.find(x=>x.id===U.matCh);const ws=c?chWords(c.id):[],ls=
  ${ls.map(l=>`<tr data-l="${l.id}"><td><input data-f="lesson" value="${l.lesson??''}" inputmode="numeric" aria-label="Урок" style="width:52px"></td><td><input data-f="section" value="${esc(l.section)}" aria-label="Раздел" style="min-width:150px"></td><td><select data-f="speaker" style="width:64px"><option value="a" ${l.speaker!=='b'&&l.speaker!=='c'?'selected':''}>1</option><option value="b" ${l.speaker==='b'?'selected':''}>2</option><option value="c" ${l.speaker==='c'?'selected':''}>3</option></select></td><td><select data-f="voice" style="width:76px"><option value="m" ${l.voice!=='f'?'selected':''}>муж.</option><option value="f" ${l.voice==='f'?'selected':''}>жен.</option></select></td><td><input class="arin" data-f="speaker_name" value="${esc(l.speaker_name)}" aria-label="Имя" style="min-width:90px"></td><td><input class="arin" data-f="ar" value="${esc(l.ar)}" aria-label="Арабский"></td><td><input data-f="ru" value="${esc(l.ru)}" aria-label="Перевод"></td>
  <td style="white-space:nowrap"><button class="play" data-say="l:${l.id}">${PLAY}</button> <button class="btn sm alt" data-rec="l:${l.id}">${l.audio_url?'Перезаписать':'Записать'}</button> <button class="btn sm alt" data-tts="l:${l.id}" title="Озвучить заново голосом Azure">ИИ</button></td><td><button class="btn sm del" data-act="dell" data-id="${l.id}" aria-label="Удалить">✕</button></td></tr>`).join('')}</tbody></table></div>
  <div class="row" style="margin-top:10px"><button class="btn" data-act="savel">Сохранить диалог</button><button class="btn alt" data-act="addl">+ Реплика</button></div>
+ ${gqSection(c)}
  <h2>Быстрый импорт слов</h2><p class="mut small">Одна строка — одно слово: <b>арабский | перевод | транскрипция</b> (транскрипция необязательна).</p>
  <textarea id="imp" class="arin" style="direction:ltr;font-family:Manrope,sans-serif;font-size:16px" placeholder="كِتَابٌ | книга | китāбун"></textarea>
  <div class="row" style="margin-top:10px"><button class="btn" data-act="import">Добавить в главу ${c.number}</button></div>`:'<p class="mut">Глав пока нет. Создайте первую.</p>'}`},
+
+exam(){return examTeacher()},
 
 stats(){if(!D.group)return V.group();
  const agg=new Map();for(const p of D.gprog)if(p.mistakes)agg.set(p.word_id,(agg.get(p.word_id)||0)+p.mistakes);
  const top=[...agg].map(([id,c])=>({w:D.words.find(w=>w.id===id),c})).filter(x=>x.w).sort((a,b)=>b.c-a.c).slice(0,10);const mx=top[0]?.c||1;
  const known=new Map();for(const p of D.gprog)if(p.known)known.set(p.student_id,(known.get(p.student_id)||0)+1);
- return `<h1>Где группе трудно</h1><p class="mut">Слова, в которых ученики группы «${esc(D.group.name)}» ошибались чаще всего.</p>
+ return `${normStats()}<h1 style="margin-top:28px">Где группе трудно</h1><p class="mut">Слова, в которых ученики группы «${esc(D.group.name)}» ошибались чаще всего.</p>
  <div class="card" style="margin-top:14px">${top.length?top.map(x=>`<div class="hbar"><span class="ar">${A(x.w.ar)}</span><span class="b" style="width:${x.c/mx*100}%"></span><b style="text-align:right">${x.c}</b></div>`).join(''):'<p class="mut" style="margin:0">Данных пока нет — они появятся после первых тестов.</p>'}</div>
  ${top.length?`<div class="row" style="margin-top:14px"><button class="btn" data-act="repeat">Задать повторение трудных слов</button></div>`:''}
  <h2>Выучено слов</h2><div class="card">${D.members.length?D.members.slice().sort((a,b)=>(known.get(b.id)||0)-(known.get(a.id)||0)).map(m=>{const k=known.get(m.id)||0;return `<div class="hbar" style="grid-template-columns:minmax(110px,200px) minmax(0,1fr) 48px"><span>${esc(m.full_name)}</span><span class="b" style="background:var(--ind);width:${W().length?k/W().length*100:0}%"></span><b style="text-align:right">${k}</b></div>`}).join(''):'<p class="mut" style="margin:0">В группе пока нет учеников.</p>'}</div>`}};
@@ -436,14 +461,16 @@ function drawQ(){const q=Q.list[Q.at];let body='';
  if(q.k==='listen')body=`<div class="qask">Послушайте и выберите слово</div><div style="text-align:center;margin:10px 0 20px"><button class="play" style="width:96px;height:96px;margin:auto" data-say="w:${q.w.id}" aria-label="Слушать"><svg viewBox="0 0 24 24" fill="currentColor" style="width:40px;height:40px"><path d="M8 5v14l11-7z"/></svg></button></div><div class="opts">${q.o.map(x=>`<button class="opt ar" data-o="${x.id}">${A(x.ar)}</button>`).join('')}</div>`;
  if(q.k==='build')body=`<div class="qask">Соберите фразу по-арабски</div><div class="qru">${esc(q.l.ru)}</div><div class="built">${Q.built.map((ti,p)=>`<button class="tile" data-un="${p}">${A(q.tiles[ti])}</button>`).join('')}</div><div class="tiles">${q.tiles.map((t,ti)=>`<button class="tile ${Q.built.includes(ti)?'used':''}" data-ti="${ti}">${A(t)}</button>`).join('')}</div>`;
  let fb='';if(Q.ans!=null){const right=q.k==='build'?q.l.ar:q.k==='ar2ru'?q.w.ru:q.w.ar;
-  fb=`<div class="fbbox ${Q.ans?'g':'w'}">${Q.ans?(Q.daily?'Верно!':'Верно! +10 очков'):'Правильный ответ:'} ${Q.ans?'':(q.k==='ar2ru'?`<div>${esc(right)}</div>`:`<div class="ar">${A(right)}</div>`)}</div><button class="btn" style="width:100%" data-act="next">${Q.at+1<Q.list.length?'Дальше':'Завершить'}</button>`}
+  fb=`<div class="fbbox ${Q.ans?'g':'w'}">${Q.ans?(Q.daily||Q.gold?'Верно!':'Верно! +10 очков'):'Правильный ответ:'} ${Q.ans?'':(q.k==='ar2ru'?`<div>${esc(right)}</div>`:`<div class="ar">${A(right)}</div>`)}</div>${Q.ans&&Q.daily?.rate&&!q.rq?rateBtns():`<button class="btn" style="width:100%" data-act="next">${Q.at+1<Q.list.length?'Дальше':'Завершить'}</button>`}`}
  else if(q.k==='build')fb=`<button class="btn" style="width:100%" data-act="check" ${Q.built.length?'':'disabled'}>Проверить</button>`;
- $('ov').innerHTML=`<div class="qz"><div class="qtop"><button class="x" data-act="close" aria-label="Закрыть">×</button><div class="prog"><i style="width:${Q.at/Q.list.length*100}%"></i></div>${Q.daily?`<span class="small mut">${Q.daily.n}/${Q.daily.tot} · ${Q.daily.title}</span>`:''}</div>${body}<div class="fb">${fb}</div></div>`;
+ $('ov').innerHTML=`<div class="qz"><div class="qtop"><button class="x" data-act="close" aria-label="Закрыть">×</button><div class="prog"><i style="width:${Q.at/Q.list.length*100}%"></i></div>${Q.daily?`<span class="small mut">${Q.daily.solo?'':Q.daily.n+'/'+Q.daily.tot+' · '}${Q.daily.title}</span>`:Q.gold?'<span class="small mut">Проверка урока</span>':''}</div>${body}<div class="fb">${fb}</div></div>`;
  if(Q.ans!=null&&q.k!=='build')document.querySelectorAll('.opt').forEach(b=>{b.disabled=true;if(+b.dataset.o===q.w.id)b.classList.add('good');else if(+b.dataset.o===Q.pick)b.classList.add('wrong')})}
 function answer(good){const q=Q.list[Q.at];Q.ans=good;if(good)Q.ok++;else Q.bad.push(q);
  if(Q.daily){if(!q.rq)Q.res.set(q.w.id,good);if(!good&&(q.rq||0)<2)Q.list.push({...q,o:shuf(q.o),rq:(q.rq||0)+1})}
  drawQ();if(q.k==='build')say({ar:q.l.ar,audio_url:q.l.audio_url});else if(q.k==='ar2ru')say(q.w)}
-async function finish(){if(Q&&Q.daily){await dsQuizDone(Q);return}
+async function finish(){if(Q&&Q.gold){await goldDone(Q);return}
+ if(Q&&Q.daily&&Q.daily.train){await trainDone(Q);return}
+ if(Q&&Q.daily){await dsQuizDone(Q);return}
  const n=Q.list.length,sc=Math.round(Q.ok/n*100),xp=Q.ok*10+(sc===100?20:0);const asgId=Q.asgId,bad=Q.bad;
  $('ov').innerHTML=`<div class="qz"><div class="loading">Сохраняем результат…</div></div>`;
  let sent=false;
@@ -585,13 +612,13 @@ async function dsRec(btn){
   mr.onstop=()=>{st.getTracks().forEach(t=>t.stop());DREC=null;const au=$('dsplay');if(!au||!btn.isConnected)return;const b=new Blob(ch,{type:mr.mimeType||'audio/webm'});au.src=URL.createObjectURL(b);au.hidden=false;au.play().catch(()=>{});btn.classList.remove('rec');btn.textContent='Записать ещё раз'};
   DREC=mr;mr.start();btn.classList.add('rec');btn.textContent='■ Стоп'}catch(e){toast('Нет доступа к микрофону')}}
 function dsQuiz(step,list){
- Q={list,at:0,ok:0,bad:[],asgId:null,ans:null,built:[],pick:null,res:new Map(),daily:{step,title:DSN[step],n:DS.n,tot:DS.tot}};
+ Q={list,at:0,ok:0,bad:[],asgId:null,ans:null,built:[],pick:null,res:new Map(),rt:new Map(),daily:{step,title:DSN[step],n:DS.n,tot:DS.tot,rate:step==='review'}};
  $('ov').classList.add('show');drawQ();if(list[0].k==='listen')setTimeout(()=>say(list[0].w),300)}
 const dsRetry=fn=>{DS.retry=fn;$('ov').innerHTML=`<div class="qz"><div class="res"><p>Не удалось сохранить результат. Проверьте интернет и попробуйте ещё раз.</p></div><div class="fb"><button class="btn" style="width:100%" data-act="d_retry">Повторить</button></div></div>`};
 async function dsQuizDone(q){const step=q.daily.step,n=q.res.size,ok=[...q.res.values()].filter(Boolean).length;
  $('ov').innerHTML='<div class="qz"><div class="loading">Сохраняем…</div></div>';
  try{
-  if(step==='review'){const items=[...q.res].map(([id,g])=>({id,ok:g}));if(items.length){const r=await sb.rpc('record_words',{items});if(r.error)throw r.error}await dsReloadProg()}
+  if(step==='review'){const items=[...q.res].map(([id,g])=>({id,ok:g,r:g?(q.rt.get(id)||2):0}));if(items.length){const r=await sb.rpc('record_words',{items});if(r.error)throw r.error}await dsReloadProg()}
   if(step==='final'){DS.acc=n?Math.round(ok/n*100):100;const items=[...q.res].map(([id,g])=>({id,ok:g,new:true}));const r=await sb.rpc('record_words',{items});if(r.error)throw r.error;await dsReloadProg()}
   await dsMark(step);dsRun()
  }catch(e){fail(e);dsRetry(()=>dsQuizDone(q))}}
@@ -620,15 +647,226 @@ async function dsAct(a,d,t){
   else{try{await dsMark(DS.k);dsRun()}catch(e){fail(e);dsRetry(()=>dsRunMark())}}}}
 async function dsRunMark(){try{await dsMark(DS.k);dsRun()}catch(e){fail(e);dsRetry(dsRunMark)}}
 
+/* ===== v2: самооценка, рекомендация, тренировка, золотые уроки, экзамен, банк вопросов ===== */
+const rateBtns=()=>`<p class="small mut" style="text-align:center;margin:0 0 8px">Насколько легко вспомнили слово? От этого зависит, когда оно вернётся</p><div class="rates"><button class="rt h" data-act="z_rate" data-r="1">Трудно</button><button class="rt n" data-act="z_rate" data-r="2">Нормально</button><button class="rt e" data-act="z_rate" data-r="3">Легко</button></div>`;
+async function qNext(){Q.at++;Q.ans=null;Q.built=[];Q.pick=null;if(Q.at>=Q.list.length)await finish();else{drawQ();const q=Q.list[Q.at];if(q.k==='listen')say(q.w)}}
+const hasAr=s=>/[؀-ۿ]/.test(s||'');
+const dt=iso=>new Date(iso).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+const localDay=iso=>new Date(iso).toLocaleDateString('sv-SE',{timeZone:D.me?.tz||'Europe/Moscow'});
+let ZRETRY=null;
+
+/* --- рекомендация урока (мягкая, без блокировок) --- */
+const unitWords=(chId,les)=>les?chWords(chId).filter(w=>LN(w)===les):chWords(chId);
+function unitPct(chId,les){if(!D.prog)return null;const ws=unitWords(chId,les);if(!ws.length)return null;const k=ws.filter(w=>{const p=D.prog.get(w.id);return p&&(p.stage>=2||p.known)}).length;return Math.round(k*100/ws.length)}
+function recommend(){if(isT()||!D.prog)return null;
+ for(const c of D.chapters){const ws=chWords(c.id);if(!ws.length)continue;const nums=[...new Set(ws.map(LN))].sort((a,b)=>a-b);
+  for(const n of nums){const pct=unitPct(c.id,n);if(pct<80)return {c,les:n,pct}}}return null}
+function recCard(ch){const r=recommend();
+ if(r)return `<div class="card"><span class="tag">Рекомендуем</span><h3 style="margin-top:8px">Том ${r.c.book} · Глава ${r.c.number} · ${ORU[r.les]||('Урок '+r.les)}</h3><p class="mut small" style="margin:0 0 12px">${esc(r.c.title)} · освоено ${r.pct}% слов урока. Это совет, а не запрет: можно открыть любой урок.</p><button class="btn" data-act="open" data-id="${r.c.id}">Открыть урок</button></div>`;
+ return ch?`<div class="card"><span class="tag">Продолжить</span><h3 style="margin-top:8px">Том ${ch.book} · Глава ${ch.number}</h3><p class="mut small" style="margin:0 0 12px">${esc(ch.title)} · ${chWords(ch.id).length} слов</p><button class="btn" data-act="open" data-id="${ch.id}">Открыть урок</button></div>`:''}
+function lessonStat(chId,n){if(isT()||!D.marks)return '';const pct=unitPct(chId,n),g=D.marks.get(chId+':'+n),r=recommend(),rec=r&&r.c.id===chId&&r.les===n;
+ if(pct==null&&!g)return '';
+ return `<div class="small mut lstat">${pct!=null?`<span>Освоено слов: <b>${pct}%</b></span>`:''}${g?.golden?'<span class="tag gold">⭐ золотой урок</span>':g?`<span>лучшая проверка: ${g.best}%</span>`:''}${rec?'<span class="tag">Рекомендуем</span>':''}</div>`}
+function goldBtn(chId,n){if(isT())return '';const all=chWords(chId),ws=n?all.filter(w=>LN(w)===n):all;if(ws.length<3||all.length<4)return '';
+ return `<button class="li" data-act="z_gold" data-ch="${chId}" data-les="${n}"><span>Проверка без подсказок<span class="sub">от 90% — урок станет золотым</span></span><span class="ic">⭐</span></button>`}
+
+/* --- золотой урок --- */
+function startGold(chId,les){const all=chWords(chId),ws=les?all.filter(w=>LN(w)===les):all;
+ if(ws.length<3||all.length<4){toast('Для проверки в этом уроке мало слов');return}
+ const dp=ws.length>=4?ws:all;
+ const list=shuf(ws).slice(0,10).map((w,i)=>({k:i%2?'ru2ar':'ar2ru',w,o:opts(w,dp,i%2?'ar':'ru')}));
+ Q={list,at:0,ok:0,bad:[],asgId:null,ans:null,built:[],pick:null,gold:{ch:chId,les}};$('ov').classList.add('show');drawQ()}
+async function goldDone(q){const n=q.list.length,sc=Math.round(q.ok/n*100),key=q.gold.ch+':'+q.gold.les;
+ $('ov').innerHTML='<div class="qz"><div class="loading">Сохраняем…</div></div>';
+ let g=null,first=false;
+ try{const was=D.marks.get(key)?.golden;const r=await sb.rpc('record_lesson_check',{p_chapter:q.gold.ch,p_lesson:q.gold.les,p_score:sc});if(r.error)throw r.error;
+  g=r.data;D.marks.set(key,g);first=!!g.golden&&!was;
+  if(first){await loadMe();const m=D.members.find(x=>x.id===D.me.id);if(m)Object.assign(m,{xp:D.me.xp,streak:D.me.streak,last_active:D.me.last_active})}
+ }catch(e){fail(e)}
+ const bad=q.bad;
+ $('ov').innerHTML=`<div class="qz"><div class="res"><div class="mut" style="font-weight:700">${sc>=90?'Отличная работа!':sc>=60?'Хороший результат':'Стоит повторить'}</div><div class="score">${sc}%</div><p>${q.ok} из ${n} верно</p>
+ ${g?.golden?`<p><span class="tag gold">⭐ Золотой урок</span>${first?' <span class="tag">+20 очков</span>':''}</p>`:`<p class="mut small">Чтобы урок стал золотым, нужно набрать 90% без ошибок в подсказках. Попробуйте ещё раз после повторения.</p>`}</div>
+ ${bad.length?`<h2>Повторить</h2><div class="list">${bad.map(x=>`<div class="item"><button class="play" data-say="w:${x.w.id}">${PLAY}</button><span class="grow">${esc(x.w.ru)}</span><span class="ar wrd">${A(x.w.ar)}</span></div>`).join('')}</div>`:''}
+ <div class="fb">${g?.golden?'':`<button class="btn alt" style="width:100%;margin-bottom:10px" data-act="z_gold" data-ch="${q.gold.ch}" data-les="${q.gold.les}">Пройти ещё раз</button>`}<button class="btn" style="width:100%" data-act="close">Готово</button></div></div>`}
+
+/* --- тренировка дня --- */
+function trainPick(){if(!D.prog)return [];const t=today(),row=dayRow(),inRev=new Set(row?.review_ids||[]),out=[],seen=new Set(),P=id=>D.prog.get(id);
+ const add=w=>{if(out.length>=10||seen.has(w.id))return;seen.add(w.id);out.push(w)};
+ const fresh=D.words.filter(w=>{const p=P(w.id);return p&&p.stage>0&&p.first_seen===t&&p.learned_at&&Date.now()-Date.parse(p.learned_at)>=4*36e5});
+ shuf(fresh).slice(0,6).forEach(add);
+ const notToday=p=>!p.updated_at||localDay(p.updated_at)!==t;
+ D.words.filter(w=>{const p=P(w.id);return p&&p.stage>0&&p.next_review&&p.next_review<=t&&!inRev.has(w.id)&&notToday(p)}).sort((a,b)=>(P(b.id).mistakes||0)-(P(a.id).mistakes||0)).forEach(add);
+ shuf(D.words.filter(w=>{const p=P(w.id);return p&&p.stage>0&&(p.mistakes||0)>=2&&notToday(p)})).forEach(add);
+ return out}
+function trainCard(){if(isT()||!goalOf())return '';
+ const done=(D.tlog||[]).find(r=>r.day===today()),n=trainPick().length;
+ if(!n&&!done)return `<div class="card dn"><span class="tag">Тренировка дня</span><p class="mut small" style="margin:8px 0 0">Пока тренировать нечего. Слова, выученные сегодня, появятся здесь через 4 часа после урока.</p></div>`;
+ return `<div class="card dn"><div class="row" style="justify-content:space-between"><span class="tag">Тренировка дня</span>${done?'<span class="tag ok">выполнена</span>':''}</div><p class="mut small" style="margin:8px 0 12px">${n?`${n} ${pl(n,['слово','слова','слов'])}: свежие слова и те, что давались трудно. ${done?'Можно пройти ещё раз, очки уже получены.':'За тренировку +10 очков.'}`:'На сегодня всё повторено.'}</p>${n?`<button class="btn ${done?'alt':''}" data-act="z_train">${done?'Ещё раз':'Начать тренировку'}</button>`:''}</div>`}
+function startTraining(){const ws=trainPick();if(!ws.length){toast('Тренировать пока нечего');return}
+ const ks=['ar2ru','ru2ar','listen'];
+ const list=shuf(ws).map((w,i)=>{let k=ks[i%3];if(k==='listen'&&!aud(w))k='ar2ru';return qFor(k,w)});
+ Q={list,at:0,ok:0,bad:[],asgId:null,ans:null,built:[],pick:null,res:new Map(),rt:new Map(),daily:{step:'train',title:'Тренировка дня',n:1,tot:1,solo:true,rate:true,train:true}};
+ $('ov').classList.add('show');drawQ();if(list[0].k==='listen')setTimeout(()=>say(list[0].w),300)}
+async function trainDone(q){const n=q.res.size,ok=[...q.res.values()].filter(Boolean).length,acc=n?Math.round(ok/n*100):100;
+ $('ov').innerHTML='<div class="qz"><div class="loading">Сохраняем…</div></div>';
+ try{const had=(D.tlog||[]).some(r=>r.day===today());
+  if(!q.saved){const items=[...q.res].map(([id,g])=>({id,ok:g,r:g?(q.rt.get(id)||2):0}));if(items.length){const r=await sb.rpc('record_words',{items});if(r.error)throw r.error}q.saved=true}
+  const c=await sb.rpc('complete_training',{p_words:n,p_accuracy:acc});if(c.error)throw c.error;
+  D.tlog=(D.tlog||[]).filter(r=>r.day!==c.data.day);D.tlog.push(c.data);
+  await dsReloadProg();await loadMe();const m=D.members.find(x=>x.id===D.me.id);if(m)Object.assign(m,{xp:D.me.xp,streak:D.me.streak,last_active:D.me.last_active});
+  $('ov').innerHTML=`<div class="qz"><div class="res"><div class="chk"><svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><h1 style="margin:0 0 6px">Тренировка выполнена</h1><p class="mut" style="margin:0">Верно: ${ok} из ${n} · точность ${acc}%</p>${had?'':'<p style="margin:10px 0 0"><span class="tag">+10 очков</span></p>'}</div><div class="fb"><button class="btn" style="width:100%" data-act="close">Готово</button></div></div>`
+ }catch(e){fail(e);ZRETRY=()=>trainDone(q);$('ov').innerHTML=`<div class="qz"><div class="res"><p>Не удалось сохранить результат. Проверьте интернет и попробуйте ещё раз.</p></div><div class="fb"><button class="btn" style="width:100%" data-act="z_retry">Повторить</button></div></div>`}}
+
+/* --- экзамен: ученик --- */
+let E=null,ETM=null;
+function examCard(){if(isT()||!D.exams?.length)return '';const now=Date.now();
+ return D.exams.map(e=>{const st=D.exst?.get(e.id),op=Date.parse(e.opens_at),cl=Date.parse(e.closes_at);
+  if(st?.finished)return now-cl<14*864e5?`<div class="card dn"><span class="tag ok">Экзамен сдан</span><h3 style="margin:8px 0 0">${esc(e.title)}</h3><p class="mut small" style="margin:4px 0 0">Результат увидит учитель.</p></div>`:'';
+  if(now>cl+(st?.started?e.time_limit_min*6e4:0))return '';
+  if(now<op)return `<div class="card dn"><span class="tag">Экзамен</span><h3 style="margin:8px 0 0">${esc(e.title)}</h3><p class="mut small" style="margin:4px 0 0">Откроется ${dt(e.opens_at)}. Слова, диалог и грамматика, ${e.time_limit_min} мин.</p></div>`;
+  return `<div class="card dn"><span class="tag late">Экзамен</span><h3 style="margin:8px 0 4px">${esc(e.title)}</h3><p class="mut small" style="margin:0 0 12px">Слова, понимание диалога и грамматика · ${e.time_limit_min} мин · одна попытка · без подсказок. Доступен до ${dt(e.closes_at)}.</p><button class="btn" data-act="z_exam" data-id="${e.id}">${st?.started?'Продолжить экзамен':'Начать экзамен'}</button></div>`}).join('')}
+function zExamIntro(e){$('ov').classList.add('show');$('ov').innerHTML=`<div class="qz"><div class="res"><h1 style="margin:0 0 10px">${esc(e.title)}</h1><p class="mut">Три части: слова, понимание диалога и грамматика.<br>Время: <b>${e.time_limit_min} мин</b>. Попытка одна.<br>Подсказок нет, правильные ответы не показываются. Результат увидит только учитель, очки не начисляются.</p></div><div class="fb"><button class="btn" style="width:100%" data-act="z_exam_go" data-id="${e.id}">Начать</button><button class="btn alt" style="width:100%;margin-top:10px" data-act="close">Не сейчас</button></div></div>`}
+function examPayload(e){const set=new Set(e.chapter_ids),seen=new Set();
+ const ws=D.words.filter(w=>set.has(w.chapter_id)&&w.ar&&w.ar!=='—'&&w.ru&&w.ru!=='—').filter(w=>{const k=wkey(w);if(seen.has(k))return false;seen.add(k);return true});
+ const words=ws.length>=4?shuf(ws).slice(0,e.n_words).map((w,i)=>{const k=i%2?'ru2ar':'ar2ru';return {k,w:w.id,o:opts(w,ws,k==='ar2ru'?'ru':'ar').map(x=>x.id)}}):[];
+ const ls=[...new Map(D.lines.filter(l=>set.has(l.chapter_id)&&l.ru&&l.ru!=='—'&&l.ar.trim().split(/\s+/).length>=2).map(l=>[l.ru,l])).values()];
+ const dialog=ls.length>=4?shuf(ls).slice(0,e.n_dialog).map(l=>{const same=shuf(ls.filter(x=>x.id!==l.id&&x.chapter_id===l.chapter_id)).slice(0,3);const rest=same.length<3?shuf(ls.filter(x=>x.id!==l.id&&!same.includes(x))).slice(0,3-same.length):[];return {l:l.id,o:shuf([l,...same,...rest]).map(x=>x.id)}}):[];
+ return {n_words:words.length,n_dialog:dialog.length,words,dialog}}
+async function zExamGo(id){const e=D.exams.find(x=>x.id===id);if(!e)return;
+ $('ov').classList.add('show');$('ov').innerHTML='<div class="qz"><div class="loading">Готовим экзамен…</div></div>';
+ try{const r=await sb.rpc('exam_start',{p_exam:id,p_payload:examPayload(e)});if(r.error)throw r.error;const s=r.data,pay=s.payload||{};
+  D.exst.set(id,{exam_id:id,started:true,finished:false});
+  const qs=[];(pay.words||[]).forEach(q=>qs.push({t:'w',k:q.k,w:q.w,o:q.o}));(pay.dialog||[]).forEach(q=>qs.push({t:'d',l:q.l,o:q.o}));(s.grammar||[]).forEach(q=>qs.push({t:'g',id:q.id,q:q.q,o:q.o}));
+  if(!qs.length){toast('В экзамене нет вопросов. Сообщите учителю');$('ov').classList.remove('show');$('ov').innerHTML='';return}
+  E={e,qs,at:0,ans:qs.map(()=>null),end:Date.parse(s.started_at)+s.limit_min*6e4};
+  zExamDraw();clearInterval(ETM);ETM=setInterval(zExamTick,1000)
+ }catch(err){fail(err);$('ov').classList.remove('show');$('ov').innerHTML='';E=null;render()}}
+function zExamDraw(){const q=E.qs[E.at],n=E.qs.length,a=E.ans[E.at];let body='';const sel=v=>a===v?' sel':'';
+ if(q.t==='w'){const w=D.words.find(x=>x.id===q.w),op=q.o.map(id=>D.words.find(x=>x.id===id)).filter(Boolean);
+  body=q.k==='ar2ru'?`<div class="qask">Выберите перевод</div><div class="ar qbig">${A(w.ar)}</div><div class="opts">${op.map(x=>`<button class="opt${sel(x.id)}" data-zo="${x.id}">${esc(x.ru)}</button>`).join('')}</div>`
+   :`<div class="qask">Как это по-арабски?</div><div class="qru">${esc(w.ru)}</div><div class="opts">${op.map(x=>`<button class="opt ar${sel(x.id)}" data-zo="${x.id}">${A(x.ar)}</button>`).join('')}</div>`}
+ else if(q.t==='d'){const l=D.lines.find(x=>x.id===q.l),op=q.o.map(id=>D.lines.find(x=>x.id===id)).filter(Boolean);
+  body=`<div class="qask">Что значит эта фраза из диалога?</div><div class="ar qbig" style="font-size:30px">${A(l.ar)}</div><div class="opts">${op.map(x=>`<button class="opt${sel(x.id)}" data-zo="${x.id}">${esc(x.ru)}</button>`).join('')}</div>`}
+ else body=`<div class="qask">Грамматика</div><div class="qru" style="font-size:22px">${esc(q.q)}</div><div class="opts">${q.o.map(x=>`<button class="opt${sel(x.i)}" data-zo="${x.i}">${hasAr(x.t)?`<span class="ar">${esc(x.t)}</span>`:esc(x.t)}</button>`).join('')}</div>`;
+ const part=q.t==='w'?'Слова':q.t==='d'?'Диалог':'Грамматика';
+ $('ov').innerHTML=`<div class="qz"><div class="qtop"><div class="prog"><i style="width:${E.at/n*100}%"></i></div><span class="small mut">${E.at+1}/${n} · ${part} · <b id="etm"></b></span></div>${body}<div class="fb"><button class="btn" style="width:100%" data-act="z_exam_next" ${a==null?'disabled':''}>${E.at+1<n?'Дальше':'Сдать экзамен'}</button></div></div>`;zExamTick()}
+function zExamTick(){if(!E)return;const left=Math.max(0,E.end-Date.now()),m=Math.floor(left/6e4),s=Math.floor(left%6e4/1000),el=$('etm');if(el)el.textContent=`${m}:${String(s).padStart(2,'0')}`;
+ if(left<=0&&!E.sending){E.sending=true;zExamSubmit(true)}}
+async function zExamSubmit(timeout){if(!E)return;clearInterval(ETM);ETM=null;E.sending=true;
+ $('ov').innerHTML='<div class="qz"><div class="loading">Отправляем ответы…</div></div>';
+ let wok=0,dok=0;const g={};
+ E.qs.forEach((q,i)=>{const a=E.ans[i];if(q.t==='w'){if(a===q.w)wok++}else if(q.t==='d'){if(a===q.l)dok++}else if(a!=null)g[q.id]=a});
+ const id=E.e.id;
+ try{const r=await sb.rpc('exam_submit',{p_exam:id,p_answers:{g},p_words_ok:wok,p_dialog_ok:dok});if(r.error)throw r.error;
+  D.exst.set(id,{exam_id:id,started:true,finished:true});E=null;
+  $('ov').innerHTML=`<div class="qz"><div class="res"><div class="chk"><svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><h1 style="margin:0 0 6px">Экзамен сдан</h1><p class="mut" style="margin:0">${timeout?'Время вышло, ответы отправлены. ':''}Результат увидит учитель.</p></div><div class="fb"><button class="btn" style="width:100%" data-act="close">Готово</button></div></div>`
+ }catch(err){fail(err);ZRETRY=()=>zExamSubmit(timeout);$('ov').innerHTML=`<div class="qz"><div class="res"><p>Не удалось отправить ответы. Проверьте интернет и нажмите «Повторить». Ответы сохранены на этом экране.</p></div><div class="fb"><button class="btn" style="width:100%" data-act="z_retry">Повторить</button></div></div>`}}
+
+/* --- экзамен: учитель --- */
+function examTeacher(){if(!D.group)return V.group();
+ if(U.openEx){const e=D.exams.find(x=>x.id===U.openEx);if(e)return examResults(e)}
+ const books=[...new Set(D.chapters.map(c=>c.book))],now=new Date(Date.now()-new Date().getTimezoneOffset()*6e4),f=d=>new Date(d.getTime()).toISOString().slice(0,16);
+ const mon=new Date().toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
+ return `<h1>Экзамены · ${esc(D.group.name)}</h1><p class="mut">Раз в месяц: слова, понимание диалога и грамматика. Без подсказок, одна попытка, результат видите только вы. Очки и повторение слов экзамен не затрагивает.</p>
+ <div class="list" style="margin:14px 0">${D.exams.length?D.exams.map(e=>{const fin=D.att.filter(a=>a.exam_id===e.id&&a.finished_at).length;return `<button class="item" data-act="z_exopen" data-id="${e.id}" style="text-align:start;width:100%"><div class="grow"><b>${esc(e.title)}</b><div class="small mut">${dt(e.opens_at)} — ${dt(e.closes_at)} · ${e.time_limit_min} мин</div></div><span class="tag ${fin&&fin>=D.members.length?'ok':''}">сдали ${fin} из ${D.members.length}</span></button>`}).join(''):'<p class="mut">Экзаменов пока нет.</p>'}</div>
+ <h2>Новый экзамен</h2><form class="form card" id="f-exam">
+ <div><label for="ex-t">Название</label><input type="text" id="ex-t" required value="Экзамен, ${esc(mon)}"></div>
+ <div><label>Какие главы входят в экзамен</label><p class="mut small" style="margin:0 0 6px">В скобках: слов · вопросов по грамматике (из них проверенных).</p>
+ ${books.map(b=>`<details style="margin:6px 0"><summary style="font-weight:700;cursor:pointer">Том ${b}</summary><label class="row" style="gap:8px;margin:8px 0"><input type="checkbox" data-bookall="${b}"> весь том</label>${D.chapters.filter(c=>c.book===b).map(c=>{const q=D.gq.filter(x=>x.chapter_id===c.id);return `<label class="row" style="gap:8px;margin:6px 0"><input type="checkbox" name="ex-ch" data-b="${b}" value="${c.id}"> <span>Глава ${c.number} — ${esc(c.title)} <span class="mut small">(${chWords(c.id).length} · ${q.length} (${q.filter(x=>x.reviewed).length}))</span></span></label>`}).join('')}</details>`).join('')}</div>
+ <div class="row"><div style="flex:1"><label for="ex-w">Слов</label><input type="number" id="ex-w" min="0" max="40" value="15"></div><div style="flex:1"><label for="ex-d">Реплик диалога</label><input type="number" id="ex-d" min="0" max="30" value="8"></div><div style="flex:1"><label for="ex-g">Вопросов по грамматике</label><input type="number" id="ex-g" min="0" max="40" value="10"></div><div style="flex:1"><label for="ex-m">Минут</label><input type="number" id="ex-m" min="5" max="180" value="30"></div></div>
+ <div class="row"><div style="flex:1;min-width:200px"><label for="ex-o">Открывается</label><input type="datetime-local" id="ex-o" value="${f(now)}"></div><div style="flex:1;min-width:200px"><label for="ex-c">Закрывается</label><input type="datetime-local" id="ex-c" value="${f(new Date(now.getTime()+2*864e5))}"></div></div>
+ <label class="row" style="gap:8px"><input type="checkbox" id="ex-u"> <span>Включать вопросы по грамматике, которые я ещё не проверил</span></label>
+ <button class="btn">Создать экзамен</button></form>`}
+async function zExamCreate(f){const ids=[...f.querySelectorAll('input[name=ex-ch]:checked')].map(i=>+i.value);
+ if(!ids.length){toast('Выберите хотя бы одну главу');return}
+ const num=(id,lo,hi)=>Math.min(hi,Math.max(lo,Math.round(+f.querySelector(id).value||0))),unr=f.querySelector('#ex-u').checked;
+ const nW=num('#ex-w',0,40),nD=num('#ex-d',0,30),nG=num('#ex-g',0,40),tm=num('#ex-m',5,180);
+ if(nW+nD+nG===0){toast('Добавьте хотя бы один вопрос');return}
+ const o=new Date(f.querySelector('#ex-o').value),c=new Date(f.querySelector('#ex-c').value);
+ if(isNaN(o)||isNaN(c)||c<=o){toast('Проверьте даты: закрытие должно быть позже открытия');return}
+ const avail=D.gq.filter(q=>ids.includes(q.chapter_id)&&(q.reviewed||unr)).length;
+ if(nG>avail){toast(`Вопросов по грамматике в выбранных главах: ${avail}, а нужно ${nG}. Отметьте вопросы проверенными в разделе «Материал» или включите непроверенные`);return}
+ const r=await sb.from('exams').insert({group_id:D.group.id,title:f.querySelector('#ex-t').value.trim()||'Экзамен',chapter_ids:ids,n_words:nW,n_dialog:nD,n_grammar:nG,time_limit_min:tm,opens_at:o.toISOString(),closes_at:c.toISOString(),include_unreviewed:unr}).select().single();
+ if(r.error)throw r.error;D.exams.unshift(r.data);toast('Экзамен создан');render()}
+function examResults(e){const at=D.att.filter(a=>a.exam_id===e.id),by=new Map(at.map(a=>[a.student_id,a])),pc=(a,b)=>b?Math.round(a*100/b)+'%':'—';
+ const rows=D.members.slice().sort((a,b)=>a.full_name.localeCompare(b.full_name)).map(m=>{const a=by.get(m.id);
+  if(!a)return `<tr><td>${esc(m.full_name)}</td><td colspan="5"><span class="tag late">не начал(а)</span></td></tr>`;
+  if(!a.finished_at)return `<tr><td>${esc(m.full_name)}</td><td colspan="5"><span class="tag">в процессе</span></td></tr>`;
+  const ok=a.words_ok+a.dialog_ok+a.grammar_ok,n=a.words_n+a.dialog_n+a.grammar_n,mins=Math.max(1,Math.round((Date.parse(a.finished_at)-Date.parse(a.started_at))/6e4));
+  return `<tr><td>${esc(m.full_name)}</td><td class="n">${a.words_ok}/${a.words_n}</td><td class="n">${a.dialog_ok}/${a.dialog_n}</td><td class="n">${a.grammar_ok}/${a.grammar_n}</td><td class="n"><b>${pc(ok,n)}</b></td><td class="n hide-s">${mins} мин${a.late?' · после времени':''}</td></tr>`}).join('');
+ const miss=new Map(),tot=new Map();
+ for(const a of at.filter(a=>a.finished_at))for(const qid of a.grammar_ids){const q=D.gq.find(x=>x.id===qid);if(!q)continue;tot.set(qid,(tot.get(qid)||0)+1);const v=a.answers?.g?.[qid];if(v==null||+v!==q.correct)miss.set(qid,(miss.get(qid)||0)+1)}
+ const top=[...miss].map(([id,c])=>({q:D.gq.find(x=>x.id===id),c,t:tot.get(id)})).filter(x=>x.q).sort((a,b)=>b.c-a.c).slice(0,8);
+ return `<button class="chip" data-act="z_exback">← Все экзамены</button><h1 style="margin-top:14px">${esc(e.title)}</h1>
+ <p class="mut">${dt(e.opens_at)} — ${dt(e.closes_at)} · ${e.time_limit_min} мин · глав: ${e.chapter_ids.length} · вопросов: слова ${e.n_words}, диалог ${e.n_dialog}, грамматика ${e.n_grammar}</p>
+ <div class="scroll"><table><thead><tr><th>Ученик</th><th class="n">Слова</th><th class="n">Диалог</th><th class="n">Грамматика</th><th class="n">Итого</th><th class="n hide-s">Время</th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="mut">В группе нет учеников</td></tr>'}</tbody></table></div>
+ ${top.length?`<h2>Где ошибались в грамматике</h2><div class="list">${top.map(x=>`<div class="item"><div class="grow">${esc(x.q.question)}<div class="small mut">Верно: ${hasAr(x.q.options[x.q.correct])?`<span class="ar">${esc(x.q.options[x.q.correct])}</span>`:esc(x.q.options[x.q.correct])}</div></div><span class="tag late">${x.c} из ${x.t}</span></div>`).join('')}</div>`:''}
+ <div class="row" style="margin-top:20px"><button class="btn del" data-act="z_exdel" data-id="${e.id}">Удалить экзамен</button></div>`}
+
+/* --- банк вопросов по грамматике (учитель, раздел «Материал») --- */
+function gqSection(c){const qs=D.gq.filter(q=>q.chapter_id===c.id),rv=qs.filter(q=>q.reviewed).length,L='АБВГД';
+ return `<h2>Вопросы по грамматике (${qs.length}, проверено ${rv})</h2><p class="mut small">Для ежемесячного экзамена. Ученики этих вопросов и ответов не видят. В экзамен попадают только проверенные вопросы (с галочкой), если при создании экзамена не включены непроверенные.</p>
+ <div>${qs.map(q=>`<div class="card" data-q="${q.id}" style="margin-bottom:10px;display:grid;gap:8px"><div class="row" style="justify-content:space-between;align-items:center"><label class="row" style="gap:6px"><input type="checkbox" data-f="reviewed" ${q.reviewed?'checked':''}> проверено</label><div class="row" style="gap:8px;align-items:center"><span class="small mut">Урок</span><input data-f="lesson" value="${q.lesson??''}" inputmode="numeric" aria-label="Урок" style="width:56px"><button class="btn sm del" data-act="z_gqdel" data-id="${q.id}" aria-label="Удалить">✕</button></div></div>
+ <textarea data-f="question" rows="2" dir="auto" aria-label="Вопрос">${esc(q.question)}</textarea>
+ ${q.options.map((o,i)=>`<div class="row" style="gap:8px;align-items:center;flex-wrap:nowrap"><b style="width:20px">${L[i]}</b><input data-o="${i}" dir="auto" class="${hasAr(o)?'arin':''}" value="${esc(o)}" aria-label="Вариант ${L[i]}" style="flex:1"></div>`).join('')}
+ <div class="row"><div><label>Верный</label><select data-f="correct">${q.options.map((_,i)=>`<option value="${i}" ${q.correct===i?'selected':''}>${L[i]}</option>`).join('')}</select></div><div style="flex:1;min-width:200px"><label>Пояснение</label><input data-f="explanation" dir="auto" value="${esc(q.explanation)}"></div></div></div>`).join('')||'<p class="mut">Вопросов пока нет.</p>'}</div>
+ <div class="row" style="margin-top:10px"><button class="btn" data-act="z_gqsave">Сохранить вопросы</button><button class="btn alt" data-act="z_gqadd">+ Вопрос</button>${qs.length?'<button class="btn alt" data-act="z_gqall">Отметить все проверенными</button>':''}</div>`}
+async function gqSave(){const cards=[...document.querySelectorAll('[data-q]')];
+ for(const el of cards){const id=+el.dataset.q,q=D.gq.find(x=>x.id===id);if(!q)continue;
+  const get=f=>el.querySelector(`[data-f="${f}"]`),opts=[...el.querySelectorAll('[data-o]')].map(i=>i.value.trim()),question=get('question').value.trim();
+  if(!question||opts.some(o=>!o)){toast('У каждого вопроса должны быть текст и все варианты ответа');return}
+  const upd={question,options:opts,correct:+get('correct').value,explanation:get('explanation').value.trim()||null,reviewed:get('reviewed').checked,lesson:get('lesson').value.trim()?+get('lesson').value:null};
+  if(JSON.stringify([q.question,q.options,q.correct,q.explanation,q.reviewed,q.lesson])===JSON.stringify([upd.question,upd.options,upd.correct,upd.explanation,upd.reviewed,upd.lesson]))continue;
+  const r=await sb.from('grammar_questions').update(upd).eq('id',id);if(r.error)throw r.error;Object.assign(q,upd)}
+ toast('Вопросы сохранены');render()}
+
+/* --- статистика нормы (учитель) --- */
+function normStats(){if(!D.group)return '';const t=today(),ms=D.members,dl=D.gdl||[],tl=D.gtl||[];
+ const doneBy=new Map();for(const r of dl)if(r.completed_at){if(!doneBy.has(r.student_id))doneBy.set(r.student_id,new Set());doneBy.get(r.student_id).add(r.day)}
+ const cnt=(id,n)=>{const s=doneBy.get(id);if(!s)return 0;let k=0;for(let i=0;i<n;i++)if(s.has(dstr(i)))k++;return k};
+ const run=id=>{const s=doneBy.get(id);if(!s)return 0;let i=s.has(dstr(0))?0:1,k=0;while(s.has(dstr(i))){k++;i++}return k};
+ const lrn=new Map(),due=new Map();for(const p of D.gprog){if(p.stage>=3||p.known)lrn.set(p.student_id,(lrn.get(p.student_id)||0)+1);if(p.stage>0&&p.next_review&&p.next_review<t)due.set(p.student_id,(due.get(p.student_id)||0)+1)}
+ const acc=id=>{const a=dl.filter(r=>r.student_id===id&&r.completed_at&&r.accuracy!=null);return a.length?Math.round(a.reduce((s,r)=>s+r.accuracy,0)/a.length)+'%':'—'};
+ const trn=id=>tl.filter(r=>r.student_id===id&&r.day>=dstr(6)).length;
+ const last=id=>{const s=[...(doneBy.get(id)||[])].sort().pop();return s?fmt(s):'—'};
+ const todayDone=ms.filter(m=>doneBy.get(m.id)?.has(t)).length,idle=ms.filter(m=>!doneBy.get(m.id)||![0,1,2].some(i=>doneBy.get(m.id).has(dstr(i)))).length;
+ const rows=ms.slice().sort((a,b)=>cnt(b.id,7)-cnt(a.id,7)||a.full_name.localeCompare(b.full_name)).map(m=>`<tr><td>${esc(m.full_name)}</td><td class="n">${m.daily_goal||'—'}</td><td class="n">${cnt(m.id,7)}/7</td><td class="n hide-s">${cnt(m.id,30)}/30</td><td class="n hide-s">${run(m.id)}</td><td class="n">${lrn.get(m.id)||0}</td><td class="n hide-s">${due.get(m.id)||0}</td><td class="n hide-s">${acc(m.id)}</td><td class="n hide-s">${trn(m.id)}</td><td class="n hide-s">${last(m.id)}</td></tr>`).join('');
+ return `<h1>Ежедневная норма · ${esc(D.group.name)}</h1><p class="mut">Кто занимается самостоятельно каждый день. Норма считается выполненной, когда пройдены все шаги дня.</p>
+ <div class="grid" style="margin:14px 0"><div class="card"><div class="mut small">Выполнили норму сегодня</div><div style="font-size:34px;font-weight:800">${todayDone} из ${ms.length}</div></div><div class="card"><div class="mut small">Не выполняли норму 3 дня подряд</div><div style="font-size:34px;font-weight:800">${idle}</div></div></div>
+ ${ms.length?`<div class="scroll"><table><thead><tr><th>Ученик</th><th class="n" title="Слов в день">Уровень</th><th class="n">Неделя</th><th class="n hide-s">30 дней</th><th class="n hide-s" title="Дней подряд с выполненной нормой">Серия</th><th class="n" title="Слов, которые держатся 7 дней и дольше">Выучено</th><th class="n hide-s" title="Повторений просрочено">Долг</th><th class="n hide-s">Точность</th><th class="n hide-s" title="Тренировок дня за неделю">Трен.</th><th class="n hide-s">Последняя</th></tr></thead><tbody>${rows}</tbody></table></div><p class="mut small">Уровень: слов в день. Неделя: дней с выполненной нормой из 7. Выучено: слова, интервал которых 7 дней и больше. Долг: повторения, которые ученик пропустил.</p>`:'<p class="mut">В группе пока нет учеников.</p>'}`}
+
+/* --- команды z_* --- */
+async function zAct(a,d,t){
+ if(a==='z_rate'){const q=Q.list[Q.at];if(q&&!q.rq&&Q.rt)Q.rt.set(q.w.id,+d.r);await qNext()}
+ else if(a==='z_train')startTraining();
+ else if(a==='z_gold')startGold(+d.ch,+d.les||0);
+ else if(a==='z_retry'){if(ZRETRY)await ZRETRY()}
+ else if(a==='z_exam'){const e=D.exams.find(x=>x.id===d.id);if(!e)return;if(D.exst.get(e.id)?.started)await zExamGo(e.id);else zExamIntro(e)}
+ else if(a==='z_exam_go')await zExamGo(d.id);
+ else if(a==='z_exam_next'){if(!E||E.ans[E.at]==null)return;if(E.at+1<E.qs.length){E.at++;zExamDraw()}else await zExamSubmit(false)}
+ else if(a==='z_exopen'){U.openEx=d.id;render();window.scrollTo(0,0)}
+ else if(a==='z_exback'){U.openEx=null;render()}
+ else if(a==='z_exdel'){if(t.dataset.sure!=='1'){t.dataset.sure='1';t.textContent='Точно удалить? Результаты учеников тоже удалятся';return}
+  const r=await sb.from('exams').delete().eq('id',d.id);if(r.error)throw r.error;D.exams=D.exams.filter(x=>x.id!==d.id);D.att=D.att.filter(x=>x.exam_id!==d.id);U.openEx=null;toast('Экзамен удалён');render()}
+ else if(a==='z_gqsave')await gqSave();
+ else if(a==='z_gqadd'){const c=D.chapters.find(x=>x.id===U.matCh),qs=D.gq.filter(q=>q.chapter_id===U.matCh);
+  const r=await sb.from('grammar_questions').insert({chapter_id:U.matCh,lesson:qs.at(-1)?.lesson??null,question:'Новый вопрос',options:['Вариант А','Вариант Б','Вариант В','Вариант Г'],correct:0,reviewed:false,sort:(qs.at(-1)?.sort||0)+1}).select().single();
+  if(r.error)throw r.error;D.gq.push(r.data);render()}
+ else if(a==='z_gqdel'){if(t.dataset.sure!=='1'){t.dataset.sure='1';t.textContent='Удалить?';return}
+  const r=await sb.from('grammar_questions').delete().eq('id',+d.id);if(r.error)throw r.error;D.gq=D.gq.filter(q=>q.id!==+d.id);render()}
+ else if(a==='z_gqall'){if(t.dataset.sure!=='1'){t.dataset.sure='1';t.textContent='Вы проверили все? Нажмите ещё раз';return}
+  const r=await sb.from('grammar_questions').update({reviewed:true}).eq('chapter_id',U.matCh);if(r.error)throw r.error;D.gq.filter(q=>q.chapter_id===U.matCh).forEach(q=>q.reviewed=true);toast('Все вопросы главы отмечены проверенными');render()}}
+
 /* ===== события ===== */
 document.addEventListener('click',async e=>{const t=e.target.closest('button,[data-say],#fc');if(!t)return;const d=t.dataset;
  try{
  if(d.auth){U.auth=d.auth;U.authErr='';render();return}
  if(t.id==='logout'){await sb.auth.signOut();return}
- if(d.tab){if(d.tab==='lessons')U.book=null;U.tab=d.tab;U.lessonOpen=false;U.part=null;U.openAsg=null;render();window.scrollTo(0,0);return}
+ if(d.tab){if(d.tab==='lessons')U.book=null;U.tab=d.tab;U.lessonOpen=false;U.part=null;U.openAsg=null;U.openEx=null;render();window.scrollTo(0,0);return}
  if(t.id==='fc'){F.fl=!F.fl;$('fc').classList.toggle('fl',F.fl);return}
  if(d.dir){F.dir=d.dir;F.fl=false;drawF();return}
  if(d.fc!=null){const w=F.list[F.at];if(d.fc==='1')F.kn++;setKnown(w.id,d.fc==='1');F.at++;F.fl=false;drawF();return}
+ if(d.zo!=null&&E){E.ans[E.at]=+d.zo;zExamDraw();return}
  if(d.o!=null&&Q&&Q.ans==null){Q.pick=+d.o;answer(+d.o===Q.list[Q.at].w.id);return}
  if(d.ti!=null&&Q&&Q.ans==null){Q.built.push(+d.ti);drawQ();return}
  if(d.un!=null&&Q&&Q.ans==null){Q.built.splice(+d.un,1);drawQ();return}
@@ -639,6 +877,7 @@ document.addEventListener('click',async e=>{const t=e.target.closest('button,[da
  if(d.say!=null){const o=byKey(d.say);if(o)say(o,t.classList.contains('line')?t:null);return}
  const a=d.act;if(!a)return;
  if(a[0]==='d'&&a[1]==='_'){await dsAct(a,d,t);return}
+ if(a[0]==='z'&&a[1]==='_'){await zAct(a,d,t);return}
  if(a==='open'){U.ch=+d.id;U.book=D.chapters.find(c=>c.id===U.ch)?.book;U.tab='lessons';U.lessonOpen=true;U.part=null;render();window.scrollTo(0,0)}
  else if(a==='back'){U.lessonOpen=false;U.part=null;render()}
  else if(a==='book'){U.book=+d.id;render();window.scrollTo(0,0)}
@@ -652,8 +891,8 @@ document.addEventListener('click',async e=>{const t=e.target.closest('button,[da
  else if(a==='hw'){const x=D.asg.find(x=>x.id===d.id);if(x)startQuiz(x.type,x.question_count,x.chapter_id,x.id)}
  else if(a==='cards')startCards(d.ch?+d.ch:null,+d.les||0);
  else if(a==='check'){const q=Q.list[Q.at];answer(Q.built.map(ti=>q.tiles[ti]).join(' ')===q.t.join(' '))}
- else if(a==='next'){Q.at++;Q.ans=null;Q.built=[];Q.pick=null;if(Q.at>=Q.list.length)await finish();else{drawQ();const q=Q.list[Q.at];if(q.k==='listen')say(q.w)}}
- else if(a==='close'){$('ov').classList.remove('show');$('ov').innerHTML='';Q=null;F=null;DS=null;if(DREC){try{DREC.stop()}catch(e){}}try{speechSynthesis.cancel()}catch(e){}render()}
+ else if(a==='next')await qNext();
+ else if(a==='close'){$('ov').classList.remove('show');$('ov').innerHTML='';Q=null;F=null;DS=null;E=null;if(ETM){clearInterval(ETM);ETM=null}if(DREC){try{DREC.stop()}catch(e){}}try{speechSynthesis.cancel()}catch(e){}render()}
  else if(a==='copy'){const txt=`Ассаляму алейкум! Приложение для уроков арабского: ${location.origin+location.pathname}\nЗарегистрируйтесь и введите код группы: ${d.v}`;try{await navigator.clipboard.writeText(txt);toast('Приглашение скопировано')}catch(e){toast('Код: '+d.v)}}
  else if(a==='asgopen'){U.openAsg=d.id;render();window.scrollTo(0,0)}
  else if(a==='asgback'){U.openAsg=null;render()}
@@ -682,7 +921,8 @@ document.addEventListener('click',async e=>{const t=e.target.closest('button,[da
 document.addEventListener('keydown',e=>{if(e.target.id==='fc'&&(e.key==='Enter'||e.key===' ')){e.preventDefault();e.target.click()}});
 document.addEventListener('input',e=>{if(e.target.id==='q'){U.q=e.target.value;const pos=e.target.selectionStart;render();const q=$('q');q.focus();q.setSelectionRange(pos,pos)}});
 document.addEventListener('change',async e=>{const t=e.target;try{
- if(t.id==='g-sel'){D.group=D.groups.find(g=>g.id===t.value);U.openAsg=null;await loadTeacher();render()}
+ if(t.dataset.bookall){document.querySelectorAll(`input[name=ex-ch][data-b="${t.dataset.bookall}"]`).forEach(i=>i.checked=t.checked)}
+ else if(t.id==='g-sel'){D.group=D.groups.find(g=>g.id===t.value);U.openAsg=null;await loadTeacher();render()}
  else if(t.id==='m-ch'){U.matCh=+t.value;render()}
  else if(t.dataset.up&&t.files[0])await uploadAudio(t.dataset.up,t.files[0]);
  else if(t.dataset.upch&&t.files[0])await uploadAudio('c:'+t.dataset.upch,t.files[0]);
@@ -696,6 +936,7 @@ document.addEventListener('submit',async e=>{const f=e.target;e.preventDefault()
    if(!r.data.session){U.auth='login';toast('Мы отправили письмо для подтверждения почты');render()}return}
   const r=await sb.auth.signInWithPassword({email,password:pass});if(r.error)throw r.error;return}
  if(f.id==='f-newpass'){const r=await sb.auth.updateUser({password:$('np').value});if(r.error)throw r.error;U.recovery=false;toast('Пароль изменён');boot();return}
+ if(f.id==='f-exam'){await zExamCreate(f);return}
  if(f.id==='f-join'){const r=await sb.rpc('join_group',{code:$('j-code').value});if(r.error)throw r.error;toast('Вы в группе!');U.tab='home';await loadStudent();render();return}
  if(f.id==='f-group'){const r=await sb.from('groups').insert({name:$('g-name').value.trim(),teacher_id:D.user.id}).select().single();if(r.error)throw r.error;D.group=r.data;toast('Группа создана');await loadTeacher();render();return}
  if(f.id==='f-asg'){const ch=$('a-c').value;const r=await sb.from('assignments').insert({group_id:D.group.id,title:$('a-t').value.trim(),type:$('a-y').value,question_count:+$('a-n').value,chapter_id:ch?+ch:null,due_date:$('a-d').value||null});if(r.error)throw r.error;toast('Задание отправлено группе');await loadTeacher();render();return}
