@@ -307,7 +307,7 @@ home(){const me=D.me,p=pending()[0],xpIn=me.xp%200,dn=['Пн','Вт','Ср','Ч�
  <div class="stat"><div><b>${run}</b>дней подряд</div><div><b>${me.xp}</b>очков</div><div><b>${lvl()}</b>уровень</div></div>
  <div class="lvl"><i style="width:${xpIn/2}%"></i></div><p class="small">${200-xpIn} очков до уровня ${lvl()+1}</p></div>
  <div><div class="small" style="opacity:.85">Эта неделя</div><div class="week">${week.map((d,i)=>`<div class="day ${d||nd[i]?'d':''} ${i===ti?'t':''}">${dn[i]}${nd[i]?'✓':''}</div>`).join('')}</div>
- <button class="btn sun" style="width:100%;margin-top:16px" data-act="quiz" data-type="mix" data-n="8" ${ws.length?'':'disabled'}>Быстрая тренировка</button></div></section>
+ <button class="btn sun" style="width:100%;margin-top:16px" data-act="z_quick" ${ws.length>=4?'':'disabled'}>Быстрая тренировка</button></div></section>
  <div class="grid" style="margin-top:14px">
  ${recCard(ch)}
  <div class="card">${p?`<span class="tag late">Задание до ${fmt(p.due_date)}</span><h3 style="margin-top:8px">${esc(p.title)}</h3><p class="mut small" style="margin:0 0 12px">${TYPES[p.type]} · ${p.question_count} вопросов</p><button class="btn" data-act="hw" data-id="${p.id}">Выполнить</button>`:`<span class="tag ok">Все задания сданы</span><h3 style="margin-top:8px">Отлично!</h3><p class="mut small">Новые задания появятся здесь.</p>`}</div>
@@ -474,6 +474,7 @@ function answer(good){const q=Q.list[Q.at];Q.ans=good;if(good)Q.ok++;else Q.bad.
  if(Q.daily){if(!q.rq)Q.res.set(q.w.id,good);if(!good&&(q.rq||0)<2)Q.list.push({...q,o:shuf(q.o),rq:(q.rq||0)+1})}
  drawQ();if(q.k==='build')say({ar:q.l.ar,audio_url:q.l.audio_url});else if(q.k==='ar2ru')say(q.w)}
 async function finish(){if(Q&&Q.gold){await goldDone(Q);return}
+ if(Q&&Q.quick&&!isT()){await quickDone(Q);return}
  if(Q&&Q.daily&&Q.daily.train){await trainDone(Q);return}
  if(Q&&Q.daily){await dsQuizDone(Q);return}
  const n=Q.list.length,sc=Math.round(Q.ok/n*100),xp=Q.ok*10+(sc===100?20:0);const asgId=Q.asgId,bad=Q.bad;
@@ -841,6 +842,30 @@ function normStats(){if(!D.group)return '';const t=today(),ms=D.members,dl=D.gdl
  ${ms.length?`<div class="scroll"><table><thead><tr><th>Ученик</th><th class="n" title="Слов в день">Уровень</th><th class="n">Неделя</th><th class="n hide-s">30 дней</th><th class="n hide-s" title="Дней подряд с выполненной нормой">Серия</th><th class="n" title="Слов, которые держатся 7 дней и дольше">Выучено</th><th class="n hide-s" title="Повторений просрочено">Долг</th><th class="n hide-s">Точность</th><th class="n hide-s" title="Тренировок дня за неделю">Трен.</th><th class="n hide-s">Последняя</th></tr></thead><tbody>${rows}</tbody></table></div><p class="mut small">Уровень: слов в день. Неделя: дней с выполненной нормой из 7. Выучено: слова, интервал которых 7 дней и больше. Долг: повторения, которые ученик пропустил.</p>`:'<p class="mut">В группе пока нет учеников.</p>'}`}
 
 /* --- команды z_* --- */
+/* --- быстрая тренировка: 10 слов, которые пора повторить --- */
+function quickPick(){const t=today(),P=id=>D.prog?.get(id),out=[],seen=new Set();
+ const add=w=>{if(out.length>=10||seen.has(w.id))return;seen.add(w.id);out.push(w)};
+ D.words.filter(w=>{const p=P(w.id);return p&&p.stage>0&&p.next_review&&p.next_review<=t}).sort((a,b)=>P(a.id).next_review<P(b.id).next_review?-1:P(a.id).next_review>P(b.id).next_review?1:(P(b.id).mistakes||0)-(P(a.id).mistakes||0)).forEach(add);
+ D.words.filter(w=>(P(w.id)?.mistakes||0)>0).sort((a,b)=>(P(b.id).mistakes||0)-(P(a.id).mistakes||0)).forEach(add);
+ const r=recommend();if(r){shuf(chWords(r.c.id).filter(w=>LN(w)===r.les)).sort((a,b)=>(P(a.id)?.known?1:0)-(P(b.id)?.known?1:0)).forEach(add)}
+ shuf(D.words.filter(w=>(P(w.id)?.stage||0)>0)).forEach(add);
+ shuf(D.words).forEach(add);
+ return out}
+function startQuick(){if(D.words.length<4){toast('Слишком мало слов для теста');return}
+ const ks=['ar2ru','ru2ar','listen'],ws=shuf(quickPick());
+ Q={list:ws.map((w,j)=>({k:ks[j%3],w,o:opts(w,D.words,ks[j%3]==='ar2ru'?'ru':'ar')})),at:0,ok:0,bad:[],asgId:null,ans:null,built:[],pick:null,quick:true};
+ $('ov').classList.add('show');drawQ();if(Q.list[0].k==='listen')setTimeout(()=>say(Q.list[0].w),300)}
+async function quickDone(q){const n=q.list.length,sc=Math.round(q.ok/n*100),bad=q.bad;
+ $('ov').innerHTML=`<div class="qz"><div class="loading">Сохраняем результат…</div></div>`;
+ let xp=0,runs=1;
+ try{const badIds=new Set(bad.filter(x=>x.w).map(x=>x.w.id));
+  const items=q.list.filter(x=>x.w).map(x=>({id:x.w.id,ok:!badIds.has(x.w.id)}));
+  const r=await sb.rpc('complete_quick',{items,p_ok:q.ok,p_n:n});if(r.error)throw r.error;xp=r.data.xp;runs=r.data.runs;
+  await dsReloadProg();await loadMe();const m=D.members.find(x=>x.id===D.me.id);if(m)Object.assign(m,{xp:D.me.xp,streak:D.me.streak,last_active:D.me.last_active});
+ }catch(e){fail(e)}
+ $('ov').innerHTML=`<div class="qz"><div class="res"><div class="mut" style="font-weight:700">${sc>=90?'Отличная работа!':sc>=60?'Хороший результат':'Стоит повторить'}</div><div class="score">${sc}%</div><p>${q.ok} из ${n} верно${xp?` · <b>+${xp} очков</b>`:''}${sc===100&&xp>=20?' (бонус за 100%)':''}</p>${runs>3?'<p class="mut small">Очки даются за первые 3 тренировки в день, эта пройдена для практики.</p>':''}</div>
+ ${bad.length?`<h2>Повторить</h2><div class="list">${bad.map(x=>`<div class="item"><button class="play" data-say="w:${x.w.id}">${PLAY}</button><span class="grow">${esc(x.w.ru)}</span><span class="ar wrd">${A(x.w.ar)}</span></div>`).join('')}</div>`:''}
+ <div class="fb"><button class="btn" style="width:100%" data-act="close">Готово</button></div></div>`}
 async function zGroupAct(a,d,t){
  if(a==='z_garch'){if(t.dataset.sure!=='1'){t.dataset.sure='1';t.textContent='Точно архивировать?';return}
   const r=await sb.from('groups').update({archived_at:new Date().toISOString()}).eq('id',D.group.id);if(r.error)throw r.error;D.group=null;toast('Группа в архиве');await loadTeacher();render()}
@@ -850,6 +875,7 @@ async function zGroupAct(a,d,t){
   const r=await sb.from('groups').delete().eq('id',D.group.id);if(r.error)throw r.error;D.group=null;U.openAsg=null;U.openEx=null;toast('Группа удалена');await loadTeacher();render()}}
 async function zAct(a,d,t){
  if(a==='z_garch'||a==='z_gunarch'||a==='z_gdel'){await zGroupAct(a,d,t);return}
+ if(a==='z_quick'){startQuick();return}
  if(a==='z_rate'){const q=Q.list[Q.at];if(q&&!q.rq&&Q.rt)Q.rt.set(q.w.id,+d.r);await qNext()}
  else if(a==='z_train')startTraining();
  else if(a==='z_gold')startGold(+d.ch,+d.les||0);
