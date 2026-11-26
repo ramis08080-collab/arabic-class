@@ -135,6 +135,20 @@ td input{min-height:38px;padding:6px 8px}
 .loading{padding:60px 0;text-align:center;color:var(--mut)}
 .rec{background:var(--cor)!important;color:#fff!important}
 audio{width:100%;margin:6px 0}
+.dn{margin-bottom:14px}
+.dn .hd{display:flex;gap:16px;align-items:center}
+.ring{width:84px;height:84px;flex:none;position:relative}
+.ring svg{transform:rotate(-90deg);display:block}
+.ring b{position:absolute;inset:0;display:grid;place-items:center;font-size:20px}
+.dsl{display:grid;gap:8px;margin:14px 0}
+.dsl div{display:flex;align-items:center;gap:10px;color:var(--mut);font-weight:600}
+.dsl div i{width:24px;height:24px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-style:normal;font-size:14px;flex:none}
+.dsl div.ok{color:var(--ink)}.dsl div.ok i{background:var(--ok);border-color:var(--ok);color:#fff}
+.lvls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.lv{display:flex;flex-direction:column;gap:3px;text-align:start;border:2px solid var(--line);background:var(--bg);border-radius:14px;padding:12px;min-height:110px}
+.lv b{font-size:17px}.lv span{font-size:13px}.lv:hover,.lv.on{border-color:var(--ind)}
+@media(min-width:760px){.lvls{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.chk{width:84px;height:84px;border-radius:50%;background:var(--ok);color:#fff;display:grid;place-items:center;margin:0 auto 14px}
 @media(prefers-reduced-motion:reduce){.fcin,.prog i{transition:none}}
 @media(max-width:700px){
  nav{position:fixed;bottom:0;left:0;right:0;background:var(--bg);border-top:1px solid var(--line);justify-content:space-around;padding:0 4px env(safe-area-inset-bottom,0);max-width:none;flex-wrap:nowrap;z-index:6}
@@ -170,7 +184,8 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const strip=s=>String(s??'').replace(/[ً-ْٰ]/g,'');
 const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 const fmt=d=>d?new Date(d+'T12:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short'}):'без срока';
-const today=()=>new Date().toISOString().slice(0,10);
+const today=()=>new Date().toLocaleDateString('sv-SE',{timeZone:D.me?.tz||'Europe/Moscow'});
+const dstr=n=>{const x=new Date(today()+'T12:00:00Z');x.setUTCDate(x.getUTCDate()-n);return x.toISOString().slice(0,10)};
 let tt;const toast=m=>{const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),3200)};
 const fail=e=>{console.error(e);toast(e?.message||'Ошибка. Попробуйте ещё раз')};
 const TYPES={mix:'Смешанный тест',ar2ru:'Арабский → русский',ru2ar:'Русский → арабский',listen:'Аудирование',build:'Сборка фраз'};
@@ -211,7 +226,8 @@ async function loadStudent(){
  const [g,mem,asg,subs,prog]=await Promise.all([sb.from('groups').select('*').eq('id',gid).single(),sb.from('group_members').select('student_id').eq('group_id',gid),sb.from('assignments').select('*').eq('group_id',gid).order('due_date'),sb.from('submissions').select('*').eq('student_id',D.user.id),sb.from('word_progress').select('*').eq('student_id',D.user.id)]);
  for(const r of [g,mem,asg,subs,prog])if(r.error)throw r.error;
  D.group=g.data;D.asg=asg.data;D.subs=subs.data;D.prog=new Map(prog.data.map(p=>[p.word_id,p]));
- const ids=mem.data.map(x=>x.student_id);const p=await sb.from('profiles').select('id,full_name,xp,streak,last_active').in('id',ids);if(p.error)throw p.error;D.members=p.data}
+ const ids=mem.data.map(x=>x.student_id);const p=await sb.from('profiles').select('id,full_name,xp,streak,last_active').in('id',ids);if(p.error)throw p.error;D.members=p.data;
+ try{const dl=await sb.from('daily_log').select('*').eq('student_id',D.user.id).gte('day',dstr(14));D.dlog=dl.error?[]:dl.data}catch(e){D.dlog=[]}}
 async function loadTeacher(){
  const g=await sb.from('groups').select('*').eq('teacher_id',D.user.id).order('created_at');if(g.error)throw g.error;D.groups=g.data;
  if(!D.groups.length){D.group=null;D.members=[];D.asg=[];D.subs=[];D.gprog=[];return}
@@ -262,15 +278,16 @@ join(){return `<div class="auth"><div class="cover"><div class="ar big">مَرْ
  <p class="mut small" style="text-align:center;margin-top:16px">Вы учитель? Напишите администратору, чтобы вам назначили роль учителя.</p></div>`},
 
 home(){const me=D.me,p=pending()[0],xpIn=me.xp%200,dn=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],ti=(new Date().getDay()+6)%7;
- const act=me.last_active===today()?1:0;const run=me.streak&&(me.last_active===today()||me.last_active===new Date(Date.now()-864e5).toISOString().slice(0,10))?me.streak:0;
+ const act=me.last_active===today()?1:0;const run=me.streak&&(me.last_active===today()||me.last_active===dstr(1))?me.streak:0;
  const week=dn.map((_,i)=>{const back=ti-i;if(back<0)return 0;const end=act?0:1;return back>=end&&back<end+run?1:0});
+ const nd=dn.map((_,i)=>{const back=ti-i;return back>=0&&(D.dlog||[]).some(r=>r.day===dstr(back)&&r.completed_at)});
  const ws=W();const wd=ws.length?ws[new Date().getDate()%ws.length]:null;
  const board=D.members.slice().sort((a,b)=>b.xp-a.xp);const my=board.findIndex(b=>b.id===me.id);
  const ch=D.chapters.find(c=>c.id===U.ch)||D.chapters[0];
- return `<section class="cover"><div><div class="ar big">أَهْلًا وَسَهْلًا</div><p>${esc(me.full_name)}, рады вас видеть! Несколько минут в день — и слова запомнятся.</p>
+ return `${normCard()}<section class="cover"><div><div class="ar big">أَهْلًا وَسَهْلًا</div><p>${esc(me.full_name)}, рады вас видеть! Несколько минут в день — и слова запомнятся.</p>
  <div class="stat"><div><b>${run}</b>дней подряд</div><div><b>${me.xp}</b>очков</div><div><b>${lvl()}</b>уровень</div></div>
  <div class="lvl"><i style="width:${xpIn/2}%"></i></div><p class="small">${200-xpIn} очков до уровня ${lvl()+1}</p></div>
- <div><div class="small" style="opacity:.85">Эта неделя</div><div class="week">${week.map((d,i)=>`<div class="day ${d?'d':''} ${i===ti?'t':''}">${dn[i]}</div>`).join('')}</div>
+ <div><div class="small" style="opacity:.85">Эта неделя</div><div class="week">${week.map((d,i)=>`<div class="day ${d||nd[i]?'d':''} ${i===ti?'t':''}">${dn[i]}${nd[i]?'✓':''}</div>`).join('')}</div>
  <button class="btn sun" style="width:100%;margin-top:16px" data-act="quiz" data-type="mix" data-n="8" ${ws.length?'':'disabled'}>Быстрая тренировка</button></div></section>
  <div class="grid" style="margin-top:14px">
  ${ch?`<div class="card"><span class="tag">Продолжить</span><h3 style="margin-top:8px">Том ${ch.book} · Глава ${ch.number}</h3><p class="mut small" style="margin:0 0 12px">${esc(ch.title)} · ${chWords(ch.id).length} слов</p><button class="btn" data-act="open" data-id="${ch.id}">Открыть урок</button></div>`:''}
@@ -419,12 +436,15 @@ function drawQ(){const q=Q.list[Q.at];let body='';
  if(q.k==='listen')body=`<div class="qask">Послушайте и выберите слово</div><div style="text-align:center;margin:10px 0 20px"><button class="play" style="width:96px;height:96px;margin:auto" data-say="w:${q.w.id}" aria-label="Слушать"><svg viewBox="0 0 24 24" fill="currentColor" style="width:40px;height:40px"><path d="M8 5v14l11-7z"/></svg></button></div><div class="opts">${q.o.map(x=>`<button class="opt ar" data-o="${x.id}">${A(x.ar)}</button>`).join('')}</div>`;
  if(q.k==='build')body=`<div class="qask">Соберите фразу по-арабски</div><div class="qru">${esc(q.l.ru)}</div><div class="built">${Q.built.map((ti,p)=>`<button class="tile" data-un="${p}">${A(q.tiles[ti])}</button>`).join('')}</div><div class="tiles">${q.tiles.map((t,ti)=>`<button class="tile ${Q.built.includes(ti)?'used':''}" data-ti="${ti}">${A(t)}</button>`).join('')}</div>`;
  let fb='';if(Q.ans!=null){const right=q.k==='build'?q.l.ar:q.k==='ar2ru'?q.w.ru:q.w.ar;
-  fb=`<div class="fbbox ${Q.ans?'g':'w'}">${Q.ans?'Верно! +10 очков':'Правильный ответ:'} ${Q.ans?'':(q.k==='ar2ru'?`<div>${esc(right)}</div>`:`<div class="ar">${A(right)}</div>`)}</div><button class="btn" style="width:100%" data-act="next">${Q.at+1<Q.list.length?'Дальше':'Завершить'}</button>`}
+  fb=`<div class="fbbox ${Q.ans?'g':'w'}">${Q.ans?(Q.daily?'Верно!':'Верно! +10 очков'):'Правильный ответ:'} ${Q.ans?'':(q.k==='ar2ru'?`<div>${esc(right)}</div>`:`<div class="ar">${A(right)}</div>`)}</div><button class="btn" style="width:100%" data-act="next">${Q.at+1<Q.list.length?'Дальше':'Завершить'}</button>`}
  else if(q.k==='build')fb=`<button class="btn" style="width:100%" data-act="check" ${Q.built.length?'':'disabled'}>Проверить</button>`;
- $('ov').innerHTML=`<div class="qz"><div class="qtop"><button class="x" data-act="close" aria-label="Закрыть">×</button><div class="prog"><i style="width:${Q.at/Q.list.length*100}%"></i></div></div>${body}<div class="fb">${fb}</div></div>`;
+ $('ov').innerHTML=`<div class="qz"><div class="qtop"><button class="x" data-act="close" aria-label="Закрыть">×</button><div class="prog"><i style="width:${Q.at/Q.list.length*100}%"></i></div>${Q.daily?`<span class="small mut">${Q.daily.n}/${Q.daily.tot} · ${Q.daily.title}</span>`:''}</div>${body}<div class="fb">${fb}</div></div>`;
  if(Q.ans!=null&&q.k!=='build')document.querySelectorAll('.opt').forEach(b=>{b.disabled=true;if(+b.dataset.o===q.w.id)b.classList.add('good');else if(+b.dataset.o===Q.pick)b.classList.add('wrong')})}
-function answer(good){const q=Q.list[Q.at];Q.ans=good;if(good)Q.ok++;else Q.bad.push(q);drawQ();if(q.k==='build')say({ar:q.l.ar,audio_url:q.l.audio_url});else if(q.k==='ar2ru')say(q.w)}
-async function finish(){const n=Q.list.length,sc=Math.round(Q.ok/n*100),xp=Q.ok*10+(sc===100?20:0);const asgId=Q.asgId,bad=Q.bad;
+function answer(good){const q=Q.list[Q.at];Q.ans=good;if(good)Q.ok++;else Q.bad.push(q);
+ if(Q.daily){if(!q.rq)Q.res.set(q.w.id,good);if(!good&&(q.rq||0)<2)Q.list.push({...q,o:shuf(q.o),rq:(q.rq||0)+1})}
+ drawQ();if(q.k==='build')say({ar:q.l.ar,audio_url:q.l.audio_url});else if(q.k==='ar2ru')say(q.w)}
+async function finish(){if(Q&&Q.daily){await dsQuizDone(Q);return}
+ const n=Q.list.length,sc=Math.round(Q.ok/n*100),xp=Q.ok*10+(sc===100?20:0);const asgId=Q.asgId,bad=Q.bad;
  $('ov').innerHTML=`<div class="qz"><div class="loading">Сохраняем результат…</div></div>`;
  let sent=false;
  try{
@@ -432,7 +452,7 @@ async function finish(){const n=Q.list.length,sc=Math.round(Q.ok/n*100),xp=Q.ok*
    const r=await sb.rpc('add_xp',{amount:Math.min(xp,200)});if(r.error)throw r.error;
    const badW=[...new Set(bad.filter(q=>q.w).map(q=>q.w.id))];
    if(badW.length){const rows=badW.map(id=>{const p=D.prog.get(id)||{};return {student_id:D.user.id,word_id:id,known:!!p.known,mistakes:(p.mistakes||0)+1,updated_at:new Date().toISOString()}});
-    const u=await sb.from('word_progress').upsert(rows);if(u.error)throw u.error;rows.forEach(r=>D.prog.set(r.word_id,r))}
+    const u=await sb.from('word_progress').upsert(rows);if(u.error)throw u.error;rows.forEach(r=>D.prog.set(r.word_id,{...(D.prog.get(r.word_id)||{}),...r}))}
    if(asgId){const s=await sb.from('submissions').insert({assignment_id:asgId,student_id:D.user.id,score:sc,answers:{bad:badW,total:n}}).select().single();if(s.error)throw s.error;D.subs.push(s.data);sent=true}
    await loadMe();const m=D.members.find(x=>x.id===D.me.id);if(m)Object.assign(m,{xp:D.me.xp,streak:D.me.streak,last_active:D.me.last_active})}
  }catch(e){fail(e)}
@@ -452,7 +472,7 @@ function drawF(){if(F.at>=F.list.length){$('ov').innerHTML=`<div class="qz"><div
  <div class="flash ${F.fl?'fl':''}" id="fc" role="button" tabindex="0" aria-label="Перевернуть карточку"><div class="fcin"><div class="face">${front}</div><div class="face bk">${back}</div></div></div>
  <p class="mut small" style="text-align:center;margin-top:-8px">Нажмите на карточку, чтобы перевернуть</p>
  <div class="fb row" style="justify-content:center"><button class="play" data-say="w:${w.id}" aria-label="Слушать">${PLAY}</button><button class="btn alt" data-fc="0" style="flex:1">Повторить</button><button class="btn" data-fc="1" style="flex:1">Знаю</button></div></div>`}
-async function setKnown(id,known){const p=D.prog.get(id)||{};const row={student_id:D.user.id,word_id:id,known,mistakes:p.mistakes||0,updated_at:new Date().toISOString()};D.prog.set(id,row);
+async function setKnown(id,known){const p=D.prog.get(id)||{};const row={student_id:D.user.id,word_id:id,known,mistakes:p.mistakes||0,updated_at:new Date().toISOString()};D.prog.set(id,{...p,...row});
  if(isT())return;const r=await sb.from('word_progress').upsert(row);if(r.error)fail(r.error)}
 
 /* ===== аудио учителя ===== */
@@ -478,6 +498,128 @@ async function saveRows(sel,tbl,arr){const rows=[...document.querySelectorAll(se
 async function ttsErr(e){try{const j=await e.context.json();return j.error||e.message}catch(_){return e?.message||'Ошибка озвучки'}}
 async function reloadAll(){if(isT())await loadTeacher();else await loadStudent();render()}
 
+/* ===== ежедневная норма новых слов ===== */
+const GOALS=[[3,'Начальный',6],[5,'Базовый',9],[7,'Продвинутый',12],[10,'Интенсивный',17]];
+const REVCAP={3:5,5:7,7:10,10:10};
+const DSN={intro:'Знакомство',speak:'Произношение',practice:'Практика',review:'Повторение',final:'Итоговая проверка'};
+const pl=(n,f)=>{const a=n%10,b=n%100;return a===1&&b!==11?f[0]:(a>=2&&a<=4&&(b<10||b>=20))?f[1]:f[2]};
+const dur=d=>{const m=Math.round(d/30);return d<60?`${d} ${pl(d,['день','дня','дней'])}`:m<24?`${m} мес.`:`${(m/12).toFixed(1).replace('.',',')} года`};
+const goalOf=()=>D.me?.daily_goal||0;
+const dayRow=()=>(D.dlog||[]).find(r=>r.day===today())||null;
+const byIds=ids=>ids.map(id=>D.words.find(w=>w.id===id)).filter(Boolean);
+const wkey=w=>w.ar+'|'+w.ru;
+const taken=id=>{const p=D.prog.get(id);return !!p&&(p.stage>0||p.known)};
+function ordered(){if(D._ord&&D._ordN===D.words.length)return D._ord;const r=[];for(const c of D.chapters)r.push(...chWords(c.id));D._ord=r.filter(w=>w.ar&&w.ar!=='—');D._ordN=D.words.length;return D._ord}
+function takenKeys(){const s=new Set();for(const w of D.words)if(taken(w.id))s.add(wkey(w));return s}
+function pickNew(n,skip){const ex=new Set(skip||[]),tk=takenKeys(),out=[];for(const w of ordered()){if(out.length>=n)break;if(ex.has(w.id)||taken(w.id))continue;const k=wkey(w);if(tk.has(k))continue;tk.add(k);out.push(w)}return out}
+function remaining(){const tk=takenKeys(),s=new Set();for(const w of ordered())if(!taken(w.id)&&!tk.has(wkey(w)))s.add(wkey(w));return s.size}
+function dueReview(cap){const t=today();return D.words.filter(w=>{const p=D.prog.get(w.id);return p&&p.stage>0&&p.next_review&&p.next_review<=t}).sort((a,b)=>{const x=D.prog.get(a.id),y=D.prog.get(b.id);return (x.next_review<y.next_review?-1:x.next_review>y.next_review?1:0)||((y.mistakes||0)-(x.mistakes||0))}).slice(0,cap)}
+const dsList=c=>{const a=[];if(c.new_ids.length)a.push('intro','speak','practice');if(c.review_ids.length)a.push('review');if(c.new_ids.length)a.push('final');return a};
+const dpOf=w=>{const ch=chWords(w.chapter_id);return ch.length>=4?ch:D.words};
+const qFor=(k,w)=>({k,w,o:opts(w,dpOf(w),k==='ar2ru'?'ru':'ar')});
+const aud=w=>!!w.audio_url;
+
+function lvlPick(cur){const left=remaining();
+ return `<div class="card dn"><span class="tag">Ежедневная норма</span><h3 style="margin-top:8px">Сколько новых слов в день?</h3>
+ <p class="mut small" style="margin:0 0 12px">Выберите уровень, который вам по силам. Его можно сменить в любое время.</p>
+ <div class="lvls">${GOALS.map(([g,n,m])=>`<button class="lv ${cur===g?'on':''}" data-act="d_goal" data-g="${g}"><b>${n}</b><span>${g} ${pl(g,['слово','слова','слов'])} в день</span><span class="mut">около ${m} мин в день · весь учебник за ${dur(Math.ceil(left/g))}</span></button>`).join('')}</div>
+ ${cur?'<button class="chip" data-act="d_chg" style="margin-top:12px">Отмена</button>':''}</div>`}
+
+function normCard(){if(isT())return '';
+ const g=goalOf(),row=dayRow();if(!g||U.chLvl)return lvlPick(g);
+ const lrn=[...D.prog.values()].filter(p=>p.stage>=3||p.known).length,due=dueReview(999).length,lv=GOALS.find(x=>x[0]===g)[1];
+ const head=`<div class="row" style="justify-content:space-between"><span class="tag">${lv} · ${g} ${pl(g,['слово','слова','слов'])} в день</span><button class="chip" data-act="d_chg" style="min-height:32px;padding:4px 12px;font-size:13px">Изменить уровень</button></div>`;
+ const info=`<p class="mut small" style="margin:10px 0 0">Всего выучено: <b>${lrn}</b> из ${D.words.length} · на повторение сегодня: <b>${due}</b></p>`;
+ if(row?.completed_at){const left=remaining();
+  return `<div class="card dn">${head}<div class="row" style="margin-top:12px"><span class="tag ok">Норма на сегодня выполнена</span></div><h3 style="margin-top:8px">Новых слов: ${row.new_ids.length} · повторено: ${row.review_ids.length}${row.accuracy!=null?` · точность ${row.accuracy}%`:''}</h3>${info}
+  ${left?`<div class="row" style="margin-top:12px"><button class="btn alt" data-act="d_extra">Ещё 3 слова</button></div>`:''}</div>`}
+ let nNew,nRev,steps;
+ if(row){nNew=row.new_ids.length;nRev=row.review_ids.length;steps=dsList(row).map(k=>[k,!!row.steps[k]])}
+ else{nNew=pickNew(g).length;nRev=dueReview(REVCAP[g]).length;steps=dsList({new_ids:Array(nNew),review_ids:Array(nRev)}).map(k=>[k,false])}
+ if(!nNew&&!nRev)return `<div class="card dn">${head}<h3 style="margin-top:12px">Все слова учебника пройдены</h3><p class="mut small">Новых слов больше нет, и повторять пока нечего. Возвращайтесь завтра.</p></div>`;
+ const done=steps.filter(s=>s[1]).length,C=2*Math.PI*34;
+ return `<div class="card dn">${head}
+ <div class="hd" style="margin-top:14px"><div class="ring"><svg width="84" height="84" viewBox="0 0 84 84"><circle cx="42" cy="42" r="34" fill="none" stroke="var(--line)" stroke-width="9"/><circle cx="42" cy="42" r="34" fill="none" stroke="var(--ok)" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C*done/steps.length} ${C}"/></svg><b>${done}/${steps.length}</b></div>
+ <div><h3 style="margin:0 0 2px">Сегодня: ${nNew} ${pl(nNew,['новое слово','новых слова','новых слов'])}${nRev?` и ${nRev} на повторение`:''}</h3><p class="mut small" style="margin:0">Пройдите все шаги, и норма будет выполнена.</p></div></div>
+ <div class="dsl">${steps.map(([k,ok])=>`<div class="${ok?'ok':''}"><i>${ok?'✓':''}</i>${DSN[k]}</div>`).join('')}</div>
+ <button class="btn" style="width:100%" data-act="d_start">${done?'Продолжить':'Начать'}</button>${info}</div>`}
+
+/* --- сессия --- */
+let DS=null,DREC=null;
+const setRow=r=>{D.dlog=(D.dlog||[]).filter(x=>x.day!==r.day);D.dlog.push(r);if(DS)DS.c=r};
+async function dsReloadProg(){const r=await sb.from('word_progress').select('*').eq('student_id',D.user.id);if(!r.error)D.prog=new Map(r.data.map(p=>[p.word_id,p]))}
+async function dsMark(k){if(DS.c.extra){DS.c.steps[k]=true;return}const r=await sb.rpc('day_step',{p_step:k});if(r.error)throw r.error;setRow(r.data)}
+async function dsOpen(extra){
+ try{let c;
+  if(extra){const nw=pickNew(3,dayRow()?.new_ids);if(!nw.length){toast('Новых слов больше нет');return}c={extra:true,new_ids:nw.map(w=>w.id),review_ids:[],steps:{}}}
+  else{let row=dayRow();
+   if(!row){const g=goalOf(),nw=pickNew(g).map(w=>w.id),rv=dueReview(REVCAP[g]).map(w=>w.id);if(!nw.length&&!rv.length){toast('На сегодня слов нет');return}
+    const r=await sb.rpc('start_day',{p_new:nw,p_review:rv});if(r.error)throw r.error;row=r.data;setRow(row)}
+   c=row}
+  DS={c,j:0,acc:null};$('ov').classList.add('show');dsRun()}catch(e){fail(e)}}
+function dsRun(){const c=DS.c,list=dsList(c),k=list.find(x=>!c.steps[x]);if(!k){dsDone();return}
+ DS.k=k;DS.n=list.indexOf(k)+1;DS.tot=list.length;DS.j=0;
+ if(k==='intro')dsIntro();else if(k==='speak')dsSpeak();
+ else if(k==='practice')dsQuiz(k,dsPractice(byIds(c.new_ids)));
+ else if(k==='review')dsQuiz(k,dsReviewQs(byIds(c.review_ids)));
+ else dsQuiz(k,shuf(byIds(c.new_ids)).map(w=>qFor('ru2ar',w)))}
+function dsPractice(ws){const A1=shuf(ws).map((w,i)=>qFor(i%2===0&&aud(w)?'listen':'ar2ru',w)),B1=shuf(ws).map(w=>qFor('ru2ar',w));
+ if(A1.length>1&&B1[0].w.id===A1[A1.length-1].w.id)B1.push(B1.shift());return [...A1,...B1]}
+function dsReviewQs(ws){const ks=['ar2ru','ru2ar','listen'];return shuf(ws).map((w,i)=>{let k=ks[i%3];if(k==='listen'&&!aud(w))k='ar2ru';return qFor(k,w)})}
+const dsTop=()=>`<div class="qtop"><button class="x" data-act="close" aria-label="Закрыть">×</button><div class="prog"><i style="width:${(DS.n-1)/DS.tot*100}%"></i></div><span class="small mut">${DS.n}/${DS.tot} · ${DSN[DS.k]}</span></div>`;
+function dsWordInfo(w){return `<div style="text-align:center"><div class="mut">${esc(w.tr||'')}</div>${w.root?`<div class="small mut">Корень: <span class="ar">${A(w.root)}</span></div>`:''}${w.plural?`<div class="small mut">Мн. ч.: <span class="ar">${A(w.plural)}</span></div>`:''}</div>`}
+function dsIntro(){const ws=byIds(DS.c.new_ids),w=ws[DS.j];
+ $('ov').innerHTML=`<div class="qz">${dsTop()}<div class="qask">Новое слово ${DS.j+1} из ${ws.length}</div><div class="ar qbig">${A(w.ar)}</div><div class="qru">${esc(w.ru)}</div>
+ <div style="text-align:center;margin-bottom:12px"><button class="play" style="width:80px;height:80px;margin:0 auto" data-say="w:${w.id}" aria-label="Слушать">${PLAY}</button></div>${dsWordInfo(w)}
+ <div class="fb"><button class="btn" style="width:100%" data-act="d_next">${DS.j+1<ws.length?'Дальше':'К произношению'}</button></div></div>`;say(w)}
+function dsSpeak(){const ws=byIds(DS.c.new_ids),w=ws[DS.j];
+ $('ov').innerHTML=`<div class="qz">${dsTop()}<div class="qask">Произношение: слово ${DS.j+1} из ${ws.length}</div><div class="ar qbig">${A(w.ar)}</div><div class="qru">${esc(w.ru)}</div>
+ <div style="text-align:center"><button class="play" style="width:80px;height:80px;margin:0 auto 12px" data-say="w:${w.id}" aria-label="Слушать">${PLAY}</button>
+ <p class="mut small" style="margin:0 0 12px">Послушайте и повторите вслух два раза. Чтобы проверить себя, запишите голос и сравните с образцом: запись остаётся только на вашем телефоне.</p>
+ <button class="btn alt sm" data-act="d_rec">Записать себя</button><audio id="dsplay" controls hidden style="margin-top:10px"></audio></div>
+ <div class="fb"><button class="btn" style="width:100%" data-act="d_next">${DS.j+1<ws.length?'Получилось, дальше':'Получилось'}</button></div></div>`}
+async function dsRec(btn){
+ if(DREC){try{DREC.stop()}catch(e){}return}
+ try{const st=await navigator.mediaDevices.getUserMedia({audio:true});const mr=new MediaRecorder(st),ch=[];
+  mr.ondataavailable=e=>ch.push(e.data);
+  mr.onstop=()=>{st.getTracks().forEach(t=>t.stop());DREC=null;const au=$('dsplay');if(!au||!btn.isConnected)return;const b=new Blob(ch,{type:mr.mimeType||'audio/webm'});au.src=URL.createObjectURL(b);au.hidden=false;au.play().catch(()=>{});btn.classList.remove('rec');btn.textContent='Записать ещё раз'};
+  DREC=mr;mr.start();btn.classList.add('rec');btn.textContent='■ Стоп'}catch(e){toast('Нет доступа к микрофону')}}
+function dsQuiz(step,list){
+ Q={list,at:0,ok:0,bad:[],asgId:null,ans:null,built:[],pick:null,res:new Map(),daily:{step,title:DSN[step],n:DS.n,tot:DS.tot}};
+ $('ov').classList.add('show');drawQ();if(list[0].k==='listen')setTimeout(()=>say(list[0].w),300)}
+const dsRetry=fn=>{DS.retry=fn;$('ov').innerHTML=`<div class="qz"><div class="res"><p>Не удалось сохранить результат. Проверьте интернет и попробуйте ещё раз.</p></div><div class="fb"><button class="btn" style="width:100%" data-act="d_retry">Повторить</button></div></div>`};
+async function dsQuizDone(q){const step=q.daily.step,n=q.res.size,ok=[...q.res.values()].filter(Boolean).length;
+ $('ov').innerHTML='<div class="qz"><div class="loading">Сохраняем…</div></div>';
+ try{
+  if(step==='review'){const items=[...q.res].map(([id,g])=>({id,ok:g}));if(items.length){const r=await sb.rpc('record_words',{items});if(r.error)throw r.error}await dsReloadProg()}
+  if(step==='final'){DS.acc=n?Math.round(ok/n*100):100;const items=[...q.res].map(([id,g])=>({id,ok:g,new:true}));const r=await sb.rpc('record_words',{items});if(r.error)throw r.error;await dsReloadProg()}
+  await dsMark(step);dsRun()
+ }catch(e){fail(e);dsRetry(()=>dsQuizDone(q))}}
+async function dsDone(){const c=DS.c;
+ try{
+  if(!c.extra&&!c.completed_at){const r=await sb.rpc('complete_day',{p_accuracy:DS.acc??c.accuracy??100});if(r.error)throw r.error;setRow(r.data);await loadMe();const m=D.members.find(x=>x.id===D.me.id);if(m)Object.assign(m,{xp:D.me.xp,streak:D.me.streak,last_active:D.me.last_active})}
+ }catch(e){fail(e);dsRetry(()=>dsDone());return}
+ const c2=DS.c,ws=byIds(c2.new_ids),left=remaining();
+ $('ov').innerHTML=`<div class="qz"><div class="res"><div class="chk"><svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+ <h1 style="margin:0 0 6px">${c2.extra?'Дополнительные слова выучены!':'Сегодняшняя норма выполнена!'}</h1>
+ <p class="mut" style="margin:0">${c2.extra?`Новых слов: ${ws.length}`:`Новых слов: ${ws.length} · повторено: ${c2.review_ids.length}${c2.accuracy!=null?` · точность ${c2.accuracy}%`:''}`}</p>
+ ${c2.extra?'':`<p style="margin:10px 0 0"><span class="tag ok">${D.me.streak} ${pl(D.me.streak,['день','дня','дней'])} подряд</span> <span class="tag">+30 очков</span></p>`}</div>
+ ${ws.length?`<h2>Слова дня</h2><div class="list">${ws.map(w=>`<div class="item"><button class="play" data-say="w:${w.id}" aria-label="Слушать">${PLAY}</button><span class="grow">${esc(w.ru)}</span><span class="ar wrd">${A(w.ar)}</span></div>`).join('')}</div>`:''}
+ <div class="fb">${left?`<button class="btn alt" style="width:100%;margin-bottom:10px" data-act="d_extra">Ещё 3 слова</button>`:''}<button class="btn" style="width:100%" data-act="close">Готово</button></div></div>`}
+async function dsAct(a,d,t){
+ if(a==='d_goal'){const g=+d.g;t.disabled=true;const r=await sb.rpc('set_daily_goal',{g});if(r.error){t.disabled=false;throw r.error}
+  D.me.daily_goal=g;const had=!!dayRow();U.chLvl=false;render();toast(had?'Уровень сохранён. Сегодняшний план не меняется, новый начнётся завтра':'Уровень выбран')}
+ else if(a==='d_chg'){U.chLvl=!U.chLvl;render()}
+ else if(a==='d_start')await dsOpen(false);
+ else if(a==='d_extra')await dsOpen(true);
+ else if(a==='d_rec')dsRec(t);
+ else if(a==='d_retry'){if(DS?.retry)await DS.retry()}
+ else if(a==='d_next'){if(DREC){try{DREC.stop()}catch(e){}}
+  DS.j++;const n=DS.c.new_ids.length;
+  if(DS.j<n){DS.k==='intro'?dsIntro():dsSpeak()}
+  else{try{await dsMark(DS.k);dsRun()}catch(e){fail(e);dsRetry(()=>dsRunMark())}}}}
+async function dsRunMark(){try{await dsMark(DS.k);dsRun()}catch(e){fail(e);dsRetry(dsRunMark)}}
+
 /* ===== события ===== */
 document.addEventListener('click',async e=>{const t=e.target.closest('button,[data-say],#fc');if(!t)return;const d=t.dataset;
  try{
@@ -496,6 +638,7 @@ document.addEventListener('click',async e=>{const t=e.target.closest('button,[da
  if(d.tts){t.disabled=true;t.textContent='…';const r=await sb.functions.invoke('tts',{body:{item:d.tts}});if(r.error||r.data?.error)throw new Error(r.data?.error||await ttsErr(r.error));if(r.data.errors?.length)toast(r.data.errors[0]);else toast('Озвучено');await loadContent();render();return}
  if(d.say!=null){const o=byKey(d.say);if(o)say(o,t.classList.contains('line')?t:null);return}
  const a=d.act;if(!a)return;
+ if(a[0]==='d'&&a[1]==='_'){await dsAct(a,d,t);return}
  if(a==='open'){U.ch=+d.id;U.book=D.chapters.find(c=>c.id===U.ch)?.book;U.tab='lessons';U.lessonOpen=true;U.part=null;render();window.scrollTo(0,0)}
  else if(a==='back'){U.lessonOpen=false;U.part=null;render()}
  else if(a==='book'){U.book=+d.id;render();window.scrollTo(0,0)}
@@ -510,7 +653,7 @@ document.addEventListener('click',async e=>{const t=e.target.closest('button,[da
  else if(a==='cards')startCards(d.ch?+d.ch:null,+d.les||0);
  else if(a==='check'){const q=Q.list[Q.at];answer(Q.built.map(ti=>q.tiles[ti]).join(' ')===q.t.join(' '))}
  else if(a==='next'){Q.at++;Q.ans=null;Q.built=[];Q.pick=null;if(Q.at>=Q.list.length)await finish();else{drawQ();const q=Q.list[Q.at];if(q.k==='listen')say(q.w)}}
- else if(a==='close'){$('ov').classList.remove('show');$('ov').innerHTML='';Q=null;F=null;try{speechSynthesis.cancel()}catch(e){}render()}
+ else if(a==='close'){$('ov').classList.remove('show');$('ov').innerHTML='';Q=null;F=null;DS=null;if(DREC){try{DREC.stop()}catch(e){}}try{speechSynthesis.cancel()}catch(e){}render()}
  else if(a==='copy'){const txt=`Ассаляму алейкум! Приложение для уроков арабского: ${location.origin+location.pathname}\nЗарегистрируйтесь и введите код группы: ${d.v}`;try{await navigator.clipboard.writeText(txt);toast('Приглашение скопировано')}catch(e){toast('Код: '+d.v)}}
  else if(a==='asgopen'){U.openAsg=d.id;render();window.scrollTo(0,0)}
  else if(a==='asgback'){U.openAsg=null;render()}
