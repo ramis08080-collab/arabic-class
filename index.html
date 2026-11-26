@@ -221,7 +221,8 @@ const byKey=k=>{const [t,id]=k.split(':');return (t==='w'?D.words:D.lines).find(
 
 /* ===== загрузка данных ===== */
 async function loadContent(){
- const [c,w,l]=await Promise.all([sb.from('chapters').select('*').order('book').order('number'),sb.from('words').select('*').order('sort').order('id'),sb.from('dialog_lines').select('*').order('sort').order('id')]);
+ const pg=async(t)=>{let all=[],from=0;for(;;){const r=await sb.from(t).select('*').order('sort').order('id').range(from,from+999);if(r.error)return r;all=all.concat(r.data);if(r.data.length<1000)return{data:all,error:null};from+=1000}};
+ const [c,w,l]=await Promise.all([sb.from('chapters').select('*').order('book').order('number'),pg('words'),pg('dialog_lines')]);
  if(c.error)throw c.error;if(w.error)throw w.error;if(l.error)throw l.error;
  D.chapters=c.data;D.words=w.data;D.lines=l.data;if(!U.ch&&D.chapters[0])U.ch=D.chapters[0].id;if(!U.matCh&&D.chapters[0])U.matCh=D.chapters[0].id}
 async function loadMe(){const {data,error}=await sb.from('profiles').select('*').eq('id',D.user.id).single();if(error)throw error;D.me=data}
